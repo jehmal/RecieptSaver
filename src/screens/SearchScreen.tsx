@@ -1,0 +1,718 @@
+import React, { useState, useMemo, Fragment } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  TouchableOpacity,
+  SectionList,
+  StatusBar,
+} from 'react-native';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import ReceiptListItem from '../components/search/ReceiptListItem';
+import { SearchBar } from '../components/search/SearchBar';
+import { FilterPills } from '../components/search/FilterPills';
+import { useTheme } from '../contexts/ThemeContext';
+
+// Types
+interface Tag {
+  id: string;
+  name: string;
+  color: string;
+}
+
+interface Receipt {
+  id: string;
+  merchant: string;
+  amount: number;
+  date: Date;
+  tags: Tag[];
+  thumbnail?: string;
+  category: string;
+  paymentMethod: string;
+  merchantLogo?: string;
+  merchantColor?: string;
+  description?: string;
+}
+
+interface ReceiptSection {
+  title: string;
+  data: Receipt[];
+}
+
+// Sample tags
+const sampleTags: Tag[] = [
+  { id: '1', name: 'Business', color: '#007AFF' },
+  { id: '2', name: 'Personal', color: '#34C759' },
+  { id: '3', name: 'Tax Deductible', color: '#AF52DE' },
+  { id: '4', name: 'Reimbursable', color: '#FF9500' },
+  { id: '5', name: 'Travel', color: '#FF3B30' },
+  { id: '6', name: 'Food', color: '#FF9500' },
+];
+
+// Sample receipt data
+const generateSampleReceipts = (): Receipt[] => {
+  const today = new Date();
+  const currentMonth = today.getMonth();
+  const currentYear = today.getFullYear();
+  
+  // Helper to create dates relative to current date
+  const getDate = (daysAgo: number) => {
+    const date = new Date();
+    date.setDate(date.getDate() - daysAgo);
+    return date;
+  };
+
+  return [
+    // Recent receipts (Last few days)
+    {
+      id: '1',
+      merchant: 'Whole Foods Market',
+      amount: 127.84,
+      date: getDate(0),
+      tags: [sampleTags[1], sampleTags[5]],
+      category: 'Groceries',
+      paymentMethod: 'Apple Pay',
+      description: 'Grocery shopping',
+      thumbnail: 'https://picsum.photos/seed/receipt1/200/300',
+      merchantLogo: '🛒',
+      merchantColor: '#00674B',
+    },
+    {
+      id: '2',
+      merchant: 'Starbucks',
+      amount: 6.75,
+      date: getDate(1),
+      tags: [sampleTags[1], sampleTags[5]],
+      category: 'Restaurants',
+      paymentMethod: 'Starbucks Card',
+      description: 'Venti Latte',
+      thumbnail: 'https://picsum.photos/seed/receipt2/200/300',
+      merchantLogo: '☕',
+      merchantColor: '#00704A',
+    },
+    {
+      id: '3',
+      merchant: 'Shell',
+      amount: 52.47,
+      date: getDate(2),
+      tags: [sampleTags[0], sampleTags[2]],
+      category: 'Transportation',
+      paymentMethod: 'Visa •••• 4532',
+      description: 'Gas - Regular',
+      thumbnail: 'https://picsum.photos/seed/receipt3/200/300',
+      merchantLogo: '⛽',
+      merchantColor: '#FCD307',
+    },
+    {
+      id: '4',
+      merchant: 'Target',
+      amount: 89.23,
+      date: getDate(3),
+      tags: [sampleTags[1]],
+      category: 'Shopping',
+      paymentMethod: 'Target RedCard •••• 8901',
+      description: 'Home essentials',
+      thumbnail: 'https://picsum.photos/seed/receipt4/200/300',
+      merchantLogo: '🎯',
+      merchantColor: '#CC0000',
+    },
+    // Last week
+    {
+      id: '5',
+      merchant: 'Uber',
+      amount: 18.65,
+      date: getDate(5),
+      tags: [sampleTags[0], sampleTags[3]],
+      category: 'Transportation',
+      paymentMethod: 'Apple Pay',
+      description: 'Ride to downtown',
+      thumbnail: 'https://picsum.photos/seed/receipt5/200/300',
+      merchantLogo: '🚗',
+      merchantColor: '#000000',
+    },
+    {
+      id: '6',
+      merchant: 'Chipotle Mexican Grill',
+      amount: 14.85,
+      date: getDate(6),
+      tags: [sampleTags[0], sampleTags[5]],
+      category: 'Restaurants',
+      paymentMethod: 'Mastercard •••• 2346',
+      description: 'Lunch - Burrito bowl',
+      thumbnail: 'https://picsum.photos/seed/receipt6/200/300',
+      merchantLogo: '🌯',
+      merchantColor: '#A81612',
+    },
+    {
+      id: '7',
+      merchant: 'Amazon',
+      amount: 156.42,
+      date: getDate(8),
+      tags: [sampleTags[0], sampleTags[3]],
+      category: 'Shopping',
+      paymentMethod: 'Amazon Store Card •••• 5678',
+      description: 'Office supplies',
+      thumbnail: 'https://picsum.photos/seed/receipt7/200/300',
+      merchantLogo: '📦',
+      merchantColor: '#FF9900',
+    },
+    {
+      id: '8',
+      merchant: 'CVS Pharmacy',
+      amount: 28.93,
+      date: getDate(10),
+      tags: [sampleTags[1]],
+      category: 'Healthcare',
+      paymentMethod: 'FSA Card •••• 3456',
+      description: 'Prescriptions',
+      thumbnail: 'https://picsum.photos/seed/receipt8/200/300',
+      merchantLogo: '💊',
+      merchantColor: '#CC0000',
+    },
+    // Earlier this month
+    {
+      id: '9',
+      merchant: 'Best Buy',
+      amount: 499.99,
+      date: getDate(15),
+      tags: [sampleTags[0], sampleTags[2], sampleTags[3]],
+      category: 'Shopping',
+      paymentMethod: 'Best Buy Card •••• 7890',
+      description: 'iPad Pro',
+      thumbnail: 'https://picsum.photos/seed/receipt9/200/300',
+      merchantLogo: '💻',
+      merchantColor: '#0046BE',
+    },
+    {
+      id: '10',
+      merchant: 'Trader Joe\'s',
+      amount: 67.32,
+      date: getDate(18),
+      tags: [sampleTags[1], sampleTags[5]],
+      category: 'Groceries',
+      paymentMethod: 'Debit •••• 1234',
+      description: 'Weekly groceries',
+      thumbnail: 'https://picsum.photos/seed/receipt10/200/300',
+      merchantLogo: '🌺',
+      merchantColor: '#D01242',
+    },
+    {
+      id: '11',
+      merchant: 'Delta Air Lines',
+      amount: 382.40,
+      date: getDate(20),
+      tags: [sampleTags[0], sampleTags[4], sampleTags[2]],
+      category: 'Travel',
+      paymentMethod: 'Amex •••• 0012',
+      description: 'Flight LAX-JFK',
+      thumbnail: 'https://picsum.photos/seed/receipt11/200/300',
+      merchantLogo: '✈️',
+      merchantColor: '#003366',
+    },
+    {
+      id: '12',
+      merchant: 'McDonald\'s',
+      amount: 8.47,
+      date: getDate(22),
+      tags: [sampleTags[1], sampleTags[5]],
+      category: 'Restaurants',
+      paymentMethod: 'Cash',
+      description: 'Breakfast',
+      thumbnail: 'https://picsum.photos/seed/receipt12/200/300',
+      merchantLogo: '🍟',
+      merchantColor: '#FBC817',
+    },
+    // Last month
+    {
+      id: '13',
+      merchant: 'Marriott Hotels',
+      amount: 289.00,
+      date: getDate(35),
+      tags: [sampleTags[0], sampleTags[4], sampleTags[3]],
+      category: 'Travel',
+      paymentMethod: 'Marriott Bonvoy •••• 4567',
+      description: 'Hotel stay - 2 nights',
+      thumbnail: 'https://picsum.photos/seed/receipt13/200/300',
+      merchantLogo: '🏨',
+      merchantColor: '#9B1B30',
+    },
+    {
+      id: '14',
+      merchant: 'Walgreens',
+      amount: 42.18,
+      date: getDate(38),
+      tags: [sampleTags[1]],
+      category: 'Healthcare',
+      paymentMethod: 'Visa •••• 8901',
+      description: 'Pharmacy',
+      thumbnail: 'https://picsum.photos/seed/receipt14/200/300',
+      merchantLogo: '💊',
+      merchantColor: '#E31837',
+    },
+    {
+      id: '15',
+      merchant: 'Chevron',
+      amount: 48.65,
+      date: getDate(40),
+      tags: [sampleTags[1]],
+      category: 'Transportation',
+      paymentMethod: 'Mastercard •••• 3456',
+      description: 'Gas - Premium',
+      thumbnail: 'https://picsum.photos/seed/receipt15/200/300',
+      merchantLogo: '⛽',
+      merchantColor: '#0080C6',
+    },
+    {
+      id: '16',
+      merchant: 'AMC Theatres',
+      amount: 36.00,
+      date: getDate(42),
+      tags: [sampleTags[1]],
+      category: 'Entertainment',
+      paymentMethod: 'AMC Stubs •••• 7890',
+      description: 'Movie tickets x2',
+      thumbnail: 'https://picsum.photos/seed/receipt16/200/300',
+      merchantLogo: '🎬',
+      merchantColor: '#ED1C24',
+    },
+    {
+      id: '17',
+      merchant: 'Spotify',
+      amount: 9.99,
+      date: getDate(45),
+      tags: [sampleTags[1]],
+      category: 'Entertainment',
+      paymentMethod: 'PayPal',
+      description: 'Monthly subscription',
+      thumbnail: 'https://picsum.photos/seed/receipt17/200/300',
+      merchantLogo: '🎵',
+      merchantColor: '#1DB954',
+    },
+    {
+      id: '18',
+      merchant: 'Kroger',
+      amount: 94.52,
+      date: getDate(48),
+      tags: [sampleTags[1], sampleTags[5]],
+      category: 'Groceries',
+      paymentMethod: 'Kroger Plus Card',
+      description: 'Groceries',
+      thumbnail: 'https://picsum.photos/seed/receipt18/200/300',
+      merchantLogo: '🛒',
+      merchantColor: '#1C539C',
+    },
+    // Two months ago
+    {
+      id: '19',
+      merchant: 'United Airlines',
+      amount: 524.30,
+      date: getDate(65),
+      tags: [sampleTags[0], sampleTags[4], sampleTags[2]],
+      category: 'Travel',
+      paymentMethod: 'United MileagePlus •••• 2345',
+      description: 'Flight SFO-ORD',
+      thumbnail: 'https://picsum.photos/seed/receipt19/200/300',
+      merchantLogo: '✈️',
+      merchantColor: '#005DAA',
+    },
+    {
+      id: '20',
+      merchant: 'Netflix',
+      amount: 15.99,
+      date: getDate(70),
+      tags: [sampleTags[1]],
+      category: 'Entertainment',
+      paymentMethod: 'Visa •••• 6789',
+      description: 'Monthly subscription',
+      thumbnail: 'https://picsum.photos/seed/receipt20/200/300',
+      merchantLogo: '🎥',
+      merchantColor: '#E50914',
+    },
+    {
+      id: '21',
+      merchant: 'Whole Foods Market',
+      amount: 156.78,
+      date: getDate(75),
+      tags: [sampleTags[0], sampleTags[5], sampleTags[3]],
+      category: 'Groceries',
+      paymentMethod: 'Amazon Prime Card •••• 3210',
+      description: 'Weekly shopping',
+      thumbnail: 'https://picsum.photos/seed/receipt21/200/300',
+      merchantLogo: '🛒',
+      merchantColor: '#00674B',
+    },
+    {
+      id: '22',
+      merchant: 'Starbucks',
+      amount: 5.45,
+      date: getDate(80),
+      tags: [sampleTags[0]],
+      category: 'Restaurants',
+      paymentMethod: 'Starbucks Card',
+      description: 'Grande Americano',
+      thumbnail: 'https://picsum.photos/seed/receipt22/200/300',
+      merchantLogo: '☕',
+      merchantColor: '#00704A',
+    },
+  ];
+};
+
+interface SearchScreenProps {
+  navigation: any; // Navigation prop
+}
+
+const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedFilters, setSelectedFilters] = useState<string[]>(['This Month']);
+  const [receipts] = useState<Receipt[]>(generateSampleReceipts());
+  const { theme, themeMode } = useTheme();
+
+  // Filter receipts based on search query and selected filters
+  const filteredReceipts = useMemo(() => {
+    return receipts.filter(receipt => {
+      // Search query filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesMerchant = receipt.merchant.toLowerCase().includes(query);
+        const matchesAmount = receipt.amount.toString().includes(query);
+        const matchesTags = receipt.tags.some(tag => 
+          tag.name.toLowerCase().includes(query)
+        );
+        const matchesCategory = receipt.category.toLowerCase().includes(query);
+        
+        if (!matchesMerchant && !matchesAmount && !matchesTags && !matchesCategory) {
+          return false;
+        }
+      }
+
+      // Date filter
+      const dateFilters = selectedFilters.filter(filter => 
+        ['Today', 'This Week', 'This Month', 'All Time'].includes(filter)
+      );
+      
+      if (dateFilters.length > 0) {
+        const now = new Date();
+        const receiptDate = new Date(receipt.date);
+        const dateFilter = dateFilters[0]; // Use the first date filter
+        
+        switch (dateFilter) {
+          case 'Today':
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const receiptDay = new Date(receiptDate.getFullYear(), receiptDate.getMonth(), receiptDate.getDate());
+            if (receiptDay.getTime() !== today.getTime()) return false;
+            break;
+          case 'This Week':
+            const weekStart = new Date(now);
+            weekStart.setDate(now.getDate() - now.getDay());
+            weekStart.setHours(0, 0, 0, 0);
+            if (receiptDate < weekStart) return false;
+            break;
+          case 'This Month':
+            if (receiptDate.getMonth() !== now.getMonth() || 
+                receiptDate.getFullYear() !== now.getFullYear()) return false;
+            break;
+          case 'All Time':
+            // No date filtering
+            break;
+        }
+      }
+
+      // Tag filters
+      const tagFilters = selectedFilters.filter(filter => 
+        !['Today', 'This Week', 'This Month', 'All Time'].includes(filter)
+      );
+      
+      if (tagFilters.length > 0) {
+        const hasMatchingTag = receipt.tags.some(tag => 
+          tagFilters.includes(tag.name)
+        );
+        if (!hasMatchingTag) return false;
+      }
+
+      return true;
+    });
+  }, [receipts, searchQuery, selectedFilters]);
+
+  // Handle search
+  const handleSearch = (text: string) => {
+    setSearchQuery(text);
+  };
+
+  // Handle filter selection
+  const handleFilterSelect = (filter: string) => {
+    // If it's a date filter, remove other date filters
+    const dateFilters = ['Today', 'This Week', 'This Month', 'All Time'];
+    
+    if (dateFilters.includes(filter)) {
+      // Remove all date filters and add the selected one
+      const nonDateFilters = selectedFilters.filter(f => !dateFilters.includes(f));
+      setSelectedFilters([...nonDateFilters, filter]);
+    } else {
+      // Toggle tag filters
+      if (selectedFilters.includes(filter)) {
+        setSelectedFilters(selectedFilters.filter(f => f !== filter));
+      } else {
+        setSelectedFilters([...selectedFilters, filter]);
+      }
+    }
+  };
+
+  // Get available tags from all receipts
+  const availableTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    receipts.forEach(receipt => {
+      receipt.tags.forEach(tag => tagSet.add(tag.name));
+    });
+    return Array.from(tagSet);
+  }, [receipts]);
+
+  // Calculate total for filtered receipts
+  const filteredTotal = useMemo(() => {
+    return filteredReceipts.reduce((sum, receipt) => sum + receipt.amount, 0);
+  }, [filteredReceipts]);
+
+  // Group filtered receipts by month
+  const groupedReceipts = useMemo(() => {
+    const groups: { [key: string]: Receipt[] } = {};
+    
+    filteredReceipts.forEach(receipt => {
+      const date = new Date(receipt.date);
+      const monthYear = date.toLocaleDateString('en-US', { 
+        month: 'long', 
+        year: 'numeric' 
+      });
+      
+      if (!groups[monthYear]) {
+        groups[monthYear] = [];
+      }
+      groups[monthYear].push(receipt);
+    });
+
+    // Convert to sections array and sort by date
+    const sections: ReceiptSection[] = Object.entries(groups)
+      .map(([title, data]) => ({
+        title,
+        data: data.sort((a, b) => b.date.getTime() - a.date.getTime()),
+      }))
+      .sort((a, b) => {
+        const dateA = new Date(a.data[0].date);
+        const dateB = new Date(b.data[0].date);
+        return dateB.getTime() - dateA.getTime();
+      });
+
+    return sections;
+  }, [filteredReceipts]);
+
+  const renderReceiptItem = ({ item, index, section }: { item: Receipt; index: number; section: ReceiptSection }) => {
+    const isLastItem = index === section.data.length - 1;
+    
+    return (
+      <Fragment key={item.id}>
+        <ReceiptListItem 
+          receipt={item} 
+          onPress={() => {
+            // Navigate to receipt detail screen
+            navigation.navigate('ReceiptDetailScreen', { receipt: item });
+          }}
+        />
+        {!isLastItem && (
+          <View style={styles.separator} />
+        )}
+      </Fragment>
+    );
+  };
+
+  const renderSectionHeader = ({ section }: { section: ReceiptSection }) => {
+    // Calculate total for this section
+    const sectionTotal = section.data.reduce((sum, receipt) => sum + receipt.amount, 0);
+    
+    return (
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>{section.title}</Text>
+        <Text style={styles.sectionTotal}>${sectionTotal.toFixed(2)}</Text>
+      </View>
+    );
+  };
+
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      backgroundColor: theme.colors.background,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.card.border,
+    },
+    backButton: {
+      padding: 4,
+    },
+    headerTitle: {
+      fontSize: 17,
+      fontWeight: '600',
+      color: theme.colors.text.primary,
+    },
+    headerSpacer: {
+      width: 32,
+    },
+    summarySection: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 16,
+      backgroundColor: theme.colors.background,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.card.border,
+    },
+    totalAmount: {
+      fontSize: 28,
+      fontWeight: '700',
+      color: theme.colors.text.primary,
+    },
+    totalLabel: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: theme.colors.text.secondary,
+      marginTop: 2,
+    },
+    filterButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.colors.accent.primary,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 20,
+      gap: 4,
+    },
+    filterButtonText: {
+      color: '#FFFFFF',
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    listContent: {
+      paddingBottom: 100,
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingTop: 20,
+      paddingBottom: 8,
+      backgroundColor: theme.colors.background,
+    },
+    sectionTitle: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: theme.colors.text.tertiary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    sectionTotal: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: theme.colors.text.tertiary,
+    },
+    emptyState: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 32,
+    },
+    emptyStateTitle: {
+      fontSize: 20,
+      fontWeight: '600',
+      color: theme.colors.text.primary,
+      marginTop: 16,
+      marginBottom: 8,
+    },
+    emptyStateText: {
+      fontSize: 16,
+      color: theme.colors.text.secondary,
+      textAlign: 'center',
+    },
+    separator: {
+      height: 1,
+      backgroundColor: theme.colors.card.border,
+      marginLeft: 72,
+      marginRight: 16,
+    },
+  });
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle={themeMode === 'dark' ? "light-content" : "dark-content"} backgroundColor={theme.colors.background} />
+      
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="chevron-back" size={24} color={theme.colors.text.primary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>My Receipts</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+
+      {/* Summary Section */}
+      <View style={styles.summarySection}>
+        <View>
+          <Text style={styles.totalAmount}>${filteredTotal.toFixed(2)}</Text>
+          <Text style={styles.totalLabel}>
+            {filteredReceipts.length} {filteredReceipts.length === 1 ? 'receipt' : 'receipts'}
+          </Text>
+        </View>
+        <TouchableOpacity style={styles.filterButton} activeOpacity={0.8}>
+          <MaterialIcons name="filter-list" size={20} color={theme.colors.background} />
+          <Text style={styles.filterButtonText}>Filter</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Search Bar */}
+      <SearchBar 
+        value={searchQuery}
+        onChangeText={handleSearch}
+      />
+
+      {/* Filter Pills */}
+      <FilterPills
+        selectedFilters={selectedFilters}
+        onFilterSelect={handleFilterSelect}
+        availableTags={availableTags}
+      />
+
+      {/* Receipt List */}
+      {groupedReceipts.length > 0 ? (
+        <SectionList
+          sections={groupedReceipts}
+          keyExtractor={(item) => item.id}
+          renderItem={renderReceiptItem}
+          renderSectionHeader={renderSectionHeader}
+          contentContainerStyle={styles.listContent}
+          stickySectionHeadersEnabled={false}
+          showsVerticalScrollIndicator={false}
+        />
+      ) : (
+        <View style={styles.emptyState}>
+          <Ionicons name="document-text-outline" size={64} color={theme.colors.text.tertiary} />
+          <Text style={styles.emptyStateTitle}>No receipts found</Text>
+          <Text style={styles.emptyStateText}>
+            {searchQuery ? 
+              `No receipts match "${searchQuery}"` : 
+              'No receipts match the selected filters'}
+          </Text>
+        </View>
+      )}
+    </SafeAreaView>
+  );
+};
+
+export default SearchScreen;
