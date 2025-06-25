@@ -7,6 +7,7 @@ import Toast from 'react-native-toast-message';
 
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { ThemeProvider } from './src/contexts/ThemeContext';
+import { AuthProvider } from './src/contexts/AuthContext';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -36,11 +37,13 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
-        <PaperProvider>
-          <StatusBar style="auto" />
-          <AppNavigator />
-          <Toast />
-        </PaperProvider>
+        <AuthProvider>
+          <PaperProvider>
+            <StatusBar style="auto" />
+            <AppNavigator />
+            <Toast />
+          </PaperProvider>
+        </AuthProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   );

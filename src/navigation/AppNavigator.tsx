@@ -7,11 +7,14 @@ import SearchScreen from '../screens/SearchScreen';
 import ReceiptDetailScreen from '../screens/ReceiptDetailScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
+import { AuthNavigator } from './AuthNavigator';
 
 const Stack = createNativeStackNavigator();
 
 export const AppNavigator = () => {
   const { theme, themeMode } = useTheme();
+  const { isAuthenticated } = useAuth();
   
   const navigationTheme = themeMode === 'dark' ? {
     ...DarkTheme,
@@ -38,34 +41,38 @@ export const AppNavigator = () => {
   try {
     return (
       <NavigationContainer theme={navigationTheme}>
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="Main" component={BottomTabNavigator} />
-          <Stack.Screen 
-            name="SearchScreen" 
-            component={SearchScreen}
-            options={{
-              animation: 'slide_from_right',
-              headerShown: false
-            }}
-          />
-          <Stack.Screen 
-            name="ReceiptDetailScreen" 
-            component={ReceiptDetailScreen}
-            options={{
-              presentation: 'transparentModal',
-              animation: 'slide_from_bottom',
-              headerShown: false
-            }}
-          />
-          <Stack.Screen 
-            name="ProfileScreen" 
-            component={ProfileScreen}
-            options={{
-              animation: 'slide_from_right',
-              headerShown: false
-            }}
-          />
-        </Stack.Navigator>
+        {!isAuthenticated ? (
+          <AuthNavigator />
+        ) : (
+          <Stack.Navigator screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="Main" component={BottomTabNavigator} />
+            <Stack.Screen 
+              name="SearchScreen" 
+              component={SearchScreen}
+              options={{
+                animation: 'slide_from_right',
+                headerShown: false
+              }}
+            />
+            <Stack.Screen 
+              name="ReceiptDetailScreen" 
+              component={ReceiptDetailScreen}
+              options={{
+                presentation: 'transparentModal',
+                animation: 'slide_from_bottom',
+                headerShown: false
+              }}
+            />
+            <Stack.Screen 
+              name="ProfileScreen" 
+              component={ProfileScreen}
+              options={{
+                animation: 'slide_from_right',
+                headerShown: false
+              }}
+            />
+          </Stack.Navigator>
+        )}
       </NavigationContainer>
     );
   } catch (error) {
