@@ -40,7 +40,8 @@
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro",
-      "output": "single"
+      "output": "single",
+      "publicPath": "/RecieptSaver/"
     },
     "plugins": [
       "expo-camera"
