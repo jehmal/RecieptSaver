@@ -7,6 +7,7 @@ import { AuthButton } from '../../components/auth/AuthButton';
 
 // Define the auth stack param list
 export type AuthStackParamList = {
+  Onboarding: undefined;
   AuthLanding: undefined;
   SignIn: undefined;
   AccountType: undefined;

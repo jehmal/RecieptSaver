@@ -15,7 +15,7 @@
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
     "noEmit": true,
-    "moduleResolution": "bundler",
+    "moduleResolution": "node",
     "allowJs": true,
     "baseUrl": ".",
     "paths": {

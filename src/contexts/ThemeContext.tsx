@@ -1,28 +1,42 @@
-import React, { createContext, useState, useContext, ReactNode } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
+import { useColorScheme } from 'react-native';
 import { theme as darkTheme } from '../styles/theme';
 import { lightTheme } from '../styles/lightTheme';
 
-type ThemeMode = 'light' | 'dark';
+type ThemeMode = 'system' | 'light' | 'dark';
 
 interface ThemeContextType {
   theme: typeof darkTheme;
   themeMode: ThemeMode;
   toggleTheme: () => void;
+  setThemeMode: (mode: ThemeMode) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [themeMode, setThemeMode] = useState<ThemeMode>('dark');
+  const systemColorScheme = useColorScheme();
+  const [themeMode, setThemeMode] = useState<ThemeMode>('system');
+  const [currentTheme, setCurrentTheme] = useState(darkTheme);
+
+  useEffect(() => {
+    if (themeMode === 'system') {
+      setCurrentTheme(systemColorScheme === 'light' ? lightTheme : darkTheme);
+    } else {
+      setCurrentTheme(themeMode === 'light' ? lightTheme : darkTheme);
+    }
+  }, [themeMode, systemColorScheme]);
 
   const toggleTheme = () => {
-    setThemeMode(prevMode => prevMode === 'dark' ? 'light' : 'dark');
+    setThemeMode(prevMode => {
+      if (prevMode === 'system') return 'light';
+      if (prevMode === 'light') return 'dark';
+      return 'system';
+    });
   };
 
-  const currentTheme = themeMode === 'dark' ? darkTheme : lightTheme;
-
   return (
-    <ThemeContext.Provider value={{ theme: currentTheme, themeMode, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme: currentTheme, themeMode, toggleTheme, setThemeMode }}>
       {children}
     </ThemeContext.Provider>
   );

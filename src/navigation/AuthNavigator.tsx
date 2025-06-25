@@ -1,6 +1,7 @@
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import {
+  OnboardingScreen,
   AuthLandingScreen,
   SignInScreen,
   AccountTypeScreen,
@@ -20,6 +21,7 @@ export const AuthNavigator: React.FC = () => {
         cardStyle: { backgroundColor: 'transparent' },
       }}
     >
+      <Stack.Screen name="Onboarding" component={OnboardingScreen} />
       <Stack.Screen name="AuthLanding" component={AuthLandingScreen} />
       <Stack.Screen name="SignIn" component={SignInScreen} />
       <Stack.Screen name="AccountType" component={AccountTypeScreen} />

@@ -1,3 +1,4 @@
+export { OnboardingScreen } from '../OnboardingScreen';
 export { AuthLandingScreen } from './AuthLandingScreen';
 export { SignInScreen } from './SignInScreen';
 export { AccountTypeScreen } from './AccountTypeScreen';

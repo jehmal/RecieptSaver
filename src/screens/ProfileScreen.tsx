@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -12,10 +12,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
+import { AppearanceModal } from '../components/AppearanceModal';
 
 const ProfileScreen: React.FC = () => {
   const { theme, themeMode, toggleTheme } = useTheme();
   const navigation = useNavigation<any>();
+  const [showAppearanceModal, setShowAppearanceModal] = useState(false);
   
   const styles = StyleSheet.create({
     container: {
@@ -174,18 +176,13 @@ const ProfileScreen: React.FC = () => {
 
         {/* Menu Items */}
         <View style={styles.menuSection}>
-          <View style={styles.menuItem}>
+          <TouchableOpacity style={styles.menuItem} onPress={() => setShowAppearanceModal(true)}>
             <View style={styles.menuLeft}>
-              <Ionicons name="moon-outline" size={24} color={theme.colors.text.primary} />
-              <Text style={styles.menuText}>Dark Mode</Text>
+              <Ionicons name="color-palette-outline" size={24} color={theme.colors.text.primary} />
+              <Text style={styles.menuText}>Appearance</Text>
             </View>
-            <Switch
-              value={themeMode === 'dark'}
-              onValueChange={toggleTheme}
-              trackColor={{ false: theme.colors.card.border, true: theme.colors.accent.primary }}
-              thumbColor={themeMode === 'dark' ? '#FFFFFF' : '#F4F3F4'}
-            />
-          </View>
+            <Ionicons name="chevron-forward" size={20} color={theme.colors.text.tertiary} />
+          </TouchableOpacity>
 
           <TouchableOpacity style={styles.menuItem}>
             <View style={styles.menuLeft}>
@@ -227,6 +224,11 @@ const ProfileScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      
+      <AppearanceModal
+        visible={showAppearanceModal}
+        onClose={() => setShowAppearanceModal(false)}
+      />
     </SafeAreaView>
   );
 };
