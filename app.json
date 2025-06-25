@@ -21,7 +21,7 @@
       "infoPlist": {
         "NSCameraUsageDescription": "This app uses the camera to scan and capture receipts.",
         "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to save and import receipt images.",
-        "NSPhotoLibraryAddUsageDescription": "This app needs permission to save receipt images to your photo library."
+        "NSPhotoLibraryAddUsageDescription": "This app needs access to save receipt images to your photo library."
       }
     },
     "android": {
@@ -40,22 +40,10 @@
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro",
-      "output": "single",
-      "publicPath": "/RecieptSaver/"
+      "output": "single"
     },
     "plugins": [
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "Allow Receipt Vault Pro to access your camera to scan receipts."
-        }
-      ],
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "The app accesses your photos to let you choose receipt images."
-        }
-      ]
+      "expo-camera"
     ],
     "extra": {
       "eas": {
