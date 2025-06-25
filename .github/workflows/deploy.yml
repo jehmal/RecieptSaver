@@ -33,10 +33,23 @@ jobs:
     - name: Build for web
       run: npx expo export --platform web
       
-    - name: Fix asset paths for GitHub Pages
+    - name: Fix all asset paths for GitHub Pages
       run: |
+        # Fix absolute paths starting with /
         sed -i 's|href="/|href="/RecieptSaver/|g' ./dist/index.html
         sed -i 's|src="/|src="/RecieptSaver/|g' ./dist/index.html
+        
+        # Fix relative asset paths
+        sed -i 's|"assets/|"/RecieptSaver/assets/|g' ./dist/index.html
+        sed -i 's|"node_modules/|"/RecieptSaver/node_modules/|g' ./dist/index.html
+        
+        # Fix any JavaScript bundle references
+        find ./dist -name "*.js" -type f -exec sed -i 's|"assets/|"/RecieptSaver/assets/|g' {} \;
+        find ./dist -name "*.js" -type f -exec sed -i 's|"node_modules/|"/RecieptSaver/node_modules/|g' {} \;
+        
+        # Fix any other relative paths that might exist
+        find ./dist -name "*.js" -type f -exec sed -i 's|"/assets/|"/RecieptSaver/assets/|g' {} \;
+        find ./dist -name "*.js" -type f -exec sed -i 's|"/node_modules/|"/RecieptSaver/node_modules/|g' {} \;
       
     - name: Add .nojekyll file
       run: touch ./dist/.nojekyll
