@@ -39,7 +39,9 @@
     },
     "web": {
       "favicon": "./assets/favicon.png",
-      "bundler": "metro"
+      "bundler": "metro",
+      "output": "static",
+      "publicPath": "/RecieptSaver/"
     },
     "plugins": [
       [
