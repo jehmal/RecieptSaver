@@ -12,15 +12,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
+import { Warranty, sortWarrantiesByExpiry } from '../types/warranty';
 
 // Import all components
 import BlackbirdTabSelector from '../components/home/BlackbirdTabSelector';
 import MerchantCard from '../components/home/MerchantCard';
 import FeaturedMerchantCard from '../components/home/FeaturedMerchantCard';
 import DailySummaryCard from '../components/home/DailySummaryCard';
+import WarrantyCard from '../components/home/WarrantyCard';
 
 const HomeScreen: React.FC = () => {
-  const [selectedTab, setSelectedTab] = useState<'receipts' | 'analytics'>('receipts');
+  const [selectedTab, setSelectedTab] = useState<'receipts' | 'warranties'>('receipts');
   const { theme } = useTheme();
   const navigation = useNavigation<any>();
   const { user } = useAuth();
@@ -31,6 +33,57 @@ const HomeScreen: React.FC = () => {
     totalSpendToday: 247.50,
     syncStatus: 'synced' as const,
   };
+
+  // Sample warranty data
+  const warranties: Warranty[] = [
+    {
+      id: 'w1',
+      itemName: 'MacBook Pro 16"',
+      serialNumber: 'C02XG2JUH7JG',
+      purchaseDate: '2024-06-15',
+      expiryDate: '2025-02-15', // ~2 months - amber gradient
+      supplier: 'Apple Store',
+      category: 'Electronics',
+      createdAt: '2024-06-15',
+      updatedAt: '2024-06-15',
+    },
+    {
+      id: 'w2',
+      itemName: 'Sony WH-1000XM5',
+      serialNumber: 'SN123456789',
+      purchaseDate: '2024-08-20',
+      expiryDate: '2025-08-20', // >3 months - blue-green gradient
+      supplier: 'Best Buy',
+      category: 'Electronics',
+      createdAt: '2024-08-20',
+      updatedAt: '2024-08-20',
+    },
+    {
+      id: 'w3',
+      itemName: 'Dyson V15 Detect',
+      serialNumber: 'DYS987654321',
+      purchaseDate: '2023-12-01',
+      expiryDate: '2025-01-15', // <1 month - red-coral gradient
+      supplier: 'Dyson Direct',
+      category: 'Home Appliances',
+      createdAt: '2023-12-01',
+      updatedAt: '2023-12-01',
+    },
+    {
+      id: 'w4',
+      itemName: 'Dell UltraSharp Monitor',
+      serialNumber: 'DELL1234567',
+      purchaseDate: '2023-01-01',
+      expiryDate: '2024-01-01', // Expired - gray gradient
+      supplier: 'Dell Direct',
+      category: 'Electronics',
+      createdAt: '2023-01-01',
+      updatedAt: '2023-01-01',
+    },
+  ];
+  
+  // Sort warranties by expiry date to show most urgent first
+  const sortedWarranties = sortWarrantiesByExpiry(warranties);
 
   // Sample data for recent receipts
   const recentReceipts = [
@@ -178,26 +231,42 @@ const HomeScreen: React.FC = () => {
           onTabChange={setSelectedTab}
         />
 
-        {/* Recent Receipts Section */}
+        {/* Recent Items Section */}
         <View style={styles.recentReceiptsSection}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Receipts</Text>
+            <Text style={styles.sectionTitle}>
+              {selectedTab === 'receipts' ? 'Recent Receipts' : 'Expiring Soon'}
+            </Text>
             <TouchableOpacity onPress={() => navigation.navigate('Search')}>
               <Text style={styles.seeAllText}>See All</Text>
             </TouchableOpacity>
           </View>
           
-          {recentReceipts.map((receipt) => (
-            <MerchantCard
-              key={receipt.id}
-              merchantName={receipt.merchant}
-              category={receipt.category}
-              amount={receipt.amount}
-              date={receipt.date}
-              logoUrl={receipt.logoUrl}
-              onPress={() => console.log(`Receipt ${receipt.id} pressed`)}
-            />
-          ))}
+          {selectedTab === 'receipts' ? (
+            recentReceipts.map((receipt) => (
+              <MerchantCard
+                key={receipt.id}
+                merchantName={receipt.merchant}
+                category={receipt.category}
+                amount={receipt.amount}
+                date={receipt.date}
+                logoUrl={receipt.logoUrl}
+                onPress={() => console.log(`Receipt ${receipt.id} pressed`)}
+              />
+            ))
+          ) : (
+            sortedWarranties.map((warranty) => (
+              <WarrantyCard
+                key={warranty.id}
+                itemName={warranty.itemName}
+                serialNumber={warranty.serialNumber}
+                purchaseDate={warranty.purchaseDate}
+                expiryDate={warranty.expiryDate}
+                supplier={warranty.supplier}
+                onPress={() => console.log(`Warranty ${warranty.id} pressed`)}
+              />
+            ))
+          )}
         </View>
         
         {/* Featured Merchant Section */}

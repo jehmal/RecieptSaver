@@ -12,8 +12,8 @@ import { useTheme } from '../../contexts/ThemeContext';
 const { width: screenWidth } = Dimensions.get('window');
 
 interface BlackbirdTabSelectorProps {
-  selectedTab: 'receipts' | 'analytics';
-  onTabChange: (tab: 'receipts' | 'analytics') => void;
+  selectedTab: 'receipts' | 'warranties';
+  onTabChange: (tab: 'receipts' | 'warranties') => void;
 }
 
 const BlackbirdTabSelector: React.FC<BlackbirdTabSelectorProps> = ({ selectedTab, onTabChange }) => {
@@ -104,19 +104,19 @@ const BlackbirdTabSelector: React.FC<BlackbirdTabSelectorProps> = ({ selectedTab
           </Text>
         </TouchableOpacity>
 
-        {/* Analytics Tab */}
+        {/* Warranties Tab */}
         <TouchableOpacity
           style={styles.tab}
-          onPress={() => onTabChange('analytics')}
+          onPress={() => onTabChange('warranties')}
           activeOpacity={0.8}
         >
           <Text
             style={[
               styles.tabText,
-              selectedTab === 'analytics' ? styles.selectedText : styles.unselectedText,
+              selectedTab === 'warranties' ? styles.selectedText : styles.unselectedText,
             ]}
           >
-            Analytics
+            Warranties
           </Text>
         </TouchableOpacity>
       </View>
