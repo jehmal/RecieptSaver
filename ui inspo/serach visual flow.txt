@@ -1,0 +1,65 @@
+  Visual Flow Analysis of Search Section
+
+  Based on my exploration, here's the complete visual flow of your search section, broken down into distinct components:
+
+  1. Header Section
+
+  - Back Arrow (< button on left)
+  - Title: "My Receipts" (centered)
+  - Filter Button (blue pill button on right)
+
+  2. Summary Stats Section
+
+  - Total Amount: $1453.32 (large text)
+  - Receipt Count: "12 receipts" (smaller text below)
+
+  3. Search Bar
+
+  - Icon: 🔍 Search magnifying glass
+  - Placeholder: "Search receipts, merchants, amounts..."
+  - Style: Light gray background, rounded corners
+
+  4. Filter Pills Row (horizontal scrollable)
+
+  Two types of filter pills:
+  - Time Filters: Today | This Week | This Month (selected) | All Time
+  - Category Filters: Personal | Food | Business | Tax Deductible | Reimbursable | Travel
+
+  5. Month Divider
+
+  - Month/Year: "JUNE 2025"
+  - Month Total: "$1453.32" (right-aligned)
+
+  6. Receipt List (scrollable)
+
+  Each receipt card contains:
+  - Merchant Icon: Emoji/icon on left (🛒, ☕, ⛽, etc.)
+  - Merchant Name: Bold text (e.g., "Whole Foods Market")
+  - Description: Gray text below name (e.g., "Grocery shopping")
+  - Date: Gray text below description (e.g., "Yesterday", "2 days ago")
+  - Amount: Right-aligned (e.g., "$127.84")
+  - Category Tag: Colored pill (Personal=Green, Business=Blue)
+
+  7. Bottom Navigation Bar
+
+  - Home icon with label
+  - Camera icon (center, blue circle)
+  - Search icon with label (current page)
+
+  Work Sections We Can Focus On:
+
+  1. Search Functionality Enhancement
+    - Add warranties to search results
+    - Implement search filters for warranties vs receipts
+    - Add advanced search options
+  2. Filter System Upgrade
+    - Add warranty-specific filters
+    - Create toggle between receipt/warranty search modes
+    - Add expiration date filters for warranties
+  3. Results Display
+    - Mixed results view (receipts + warranties)
+    - Visual differentiation between receipt and warranty cards
+    - Add warranty status indicators in search results
+  4. Category Management
+    - Add warranty categories (Electronics, Appliances, etc.)
+    - Create unified category system for both receipts and warranties

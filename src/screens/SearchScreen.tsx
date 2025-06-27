@@ -7,12 +7,19 @@ import {
   TouchableOpacity,
   SectionList,
   StatusBar,
+  ScrollView,
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import ReceiptListItem from '../components/search/ReceiptListItem';
 import { SearchBar } from '../components/search/SearchBar';
 import { FilterPills } from '../components/search/FilterPills';
+import { AdvancedFilterSheet } from '../components/search/AdvancedFilterSheet';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
+import BlackbirdTabSelector from '../components/home/BlackbirdTabSelector';
+import { Warranty, sortWarrantiesByExpiry } from '../types/warranty';
+import WarrantyCard from '../components/home/WarrantyCard';
+import { FilterState, defaultFilterState } from '../types/filters';
 
 // Types
 interface Tag {
@@ -364,11 +371,124 @@ interface SearchScreenProps {
 
 const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFilters, setSelectedFilters] = useState<string[]>(['This Month']);
+  const [filters, setFilters] = useState<FilterState>(defaultFilterState);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [receipts] = useState<Receipt[]>(generateSampleReceipts());
+  
+  // Mock warranty data
+  const warranties: Warranty[] = [
+    {
+      id: 'w1',
+      itemName: 'MacBook Pro 16"',
+      serialNumber: 'C02XG2JUH7JG',
+      purchaseDate: '2024-06-15',
+      expiryDate: '2025-02-15',
+      supplier: 'Apple Store',
+      category: 'Electronics',
+      createdAt: '2024-06-15',
+      updatedAt: '2024-06-15',
+    },
+    {
+      id: 'w2',
+      itemName: 'Sony WH-1000XM5',
+      serialNumber: 'SN123456789',
+      purchaseDate: '2024-08-20',
+      expiryDate: '2025-08-20',
+      supplier: 'Best Buy',
+      category: 'Electronics',
+      createdAt: '2024-08-20',
+      updatedAt: '2024-08-20',
+    },
+    {
+      id: 'w3',
+      itemName: 'Dyson V15 Detect',
+      serialNumber: 'DYS987654321',
+      purchaseDate: '2023-12-01',
+      expiryDate: '2025-01-15',
+      supplier: 'Dyson Direct',
+      category: 'Home Appliances',
+      createdAt: '2023-12-01',
+      updatedAt: '2023-12-01',
+    },
+    {
+      id: 'w4',
+      itemName: 'Dell UltraSharp Monitor',
+      serialNumber: 'DELL1234567',
+      purchaseDate: '2023-01-01',
+      expiryDate: '2024-01-01',
+      supplier: 'Dell Direct',
+      category: 'Electronics',
+      createdAt: '2023-01-01',
+      updatedAt: '2023-01-01',
+    },
+    {
+      id: 'w5',
+      itemName: 'Samsung Galaxy S24',
+      serialNumber: 'SAMS567890',
+      purchaseDate: '2024-03-15',
+      expiryDate: '2026-03-15',
+      supplier: 'Samsung Store',
+      category: 'Electronics',
+      createdAt: '2024-03-15',
+      updatedAt: '2024-03-15',
+    },
+    {
+      id: 'w6',
+      itemName: 'LG OLED TV 55"',
+      serialNumber: 'LG55OLED2024',
+      purchaseDate: '2024-11-01',
+      expiryDate: '2026-11-01',
+      supplier: 'Costco',
+      category: 'Electronics',
+      createdAt: '2024-11-01',
+      updatedAt: '2024-11-01',
+    },
+    {
+      id: 'w7',
+      itemName: 'Instant Pot Pro',
+      serialNumber: 'IP789012345',
+      purchaseDate: '2023-09-10',
+      expiryDate: '2024-09-10',
+      supplier: 'Amazon',
+      category: 'Home Appliances',
+      createdAt: '2023-09-10',
+      updatedAt: '2023-09-10',
+    },
+    {
+      id: 'w8',
+      itemName: 'Ninja Blender',
+      serialNumber: 'NJ456789012',
+      purchaseDate: '2024-05-20',
+      expiryDate: '2025-05-20',
+      supplier: 'Target',
+      category: 'Home Appliances',
+      createdAt: '2024-05-20',
+      updatedAt: '2024-05-20',
+    },
+  ];
+  
+  const sortedWarranties = sortWarrantiesByExpiry(warranties);
   const { theme, themeMode } = useTheme();
+  const { user } = useAuth();
+  const [selectedTab, setSelectedTab] = useState<'receipts' | 'warranties'>('receipts');
 
-  // Filter receipts based on search query and selected filters
+  // Calculate advanced filter count
+  const advancedFilterCount = useMemo(() => {
+    let count = 0;
+    if (filters.priceRange.min > 0 || filters.priceRange.max < 10000) count++;
+    if (filters.supplier) count++;
+    if (filters.tags.length > 0) count++;
+    if (filters.teamMember) count++;
+    if (filters.gstStatus) count++;
+    if (filters.warrantyStatus) count++;
+    if (filters.receiptType) count++;
+    if (filters.reimbursementStatus) count++;
+    if (filters.jobSite) count++;
+    if (filters.subscription) count++;
+    return count;
+  }, [filters]);
+
+  // Filter receipts based on search query and all filters
   const filteredReceipts = useMemo(() => {
     return receipts.filter(receipt => {
       // Search query filter
@@ -386,86 +506,82 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
         }
       }
 
-      // Date filter
-      const dateFilters = selectedFilters.filter(filter => 
-        ['Today', 'This Week', 'This Month', 'All Time'].includes(filter)
-      );
-      
-      if (dateFilters.length > 0) {
-        const now = new Date();
-        const receiptDate = new Date(receipt.date);
-        const dateFilter = dateFilters[0]; // Use the first date filter
-        
-        switch (dateFilter) {
-          case 'Today':
-            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            const receiptDay = new Date(receiptDate.getFullYear(), receiptDate.getMonth(), receiptDate.getDate());
-            if (receiptDay.getTime() !== today.getTime()) return false;
-            break;
-          case 'This Week':
-            const weekStart = new Date(now);
-            weekStart.setDate(now.getDate() - now.getDay());
-            weekStart.setHours(0, 0, 0, 0);
-            if (receiptDate < weekStart) return false;
-            break;
-          case 'This Month':
-            if (receiptDate.getMonth() !== now.getMonth() || 
-                receiptDate.getFullYear() !== now.getFullYear()) return false;
-            break;
-          case 'All Time':
-            // No date filtering
-            break;
+      // Category filter
+      if (filters.categories.length > 0) {
+        if (!filters.categories.includes(receipt.category)) {
+          return false;
         }
       }
 
-      // Tag filters
-      const tagFilters = selectedFilters.filter(filter => 
-        !['Today', 'This Week', 'This Month', 'All Time'].includes(filter)
-      );
+      // Date filter
+      const now = new Date();
+      const receiptDate = new Date(receipt.date);
       
-      if (tagFilters.length > 0) {
-        const hasMatchingTag = receipt.tags.some(tag => 
-          tagFilters.includes(tag.name)
-        );
-        if (!hasMatchingTag) return false;
+      switch (filters.dateRange) {
+        case 'Today':
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          const receiptDay = new Date(receiptDate.getFullYear(), receiptDate.getMonth(), receiptDate.getDate());
+          if (receiptDay.getTime() !== today.getTime()) return false;
+          break;
+        case 'This Week':
+          const weekStart = new Date(now);
+          weekStart.setDate(now.getDate() - now.getDay());
+          weekStart.setHours(0, 0, 0, 0);
+          if (receiptDate < weekStart) return false;
+          break;
+        case 'This Month':
+          if (receiptDate.getMonth() !== now.getMonth() || 
+              receiptDate.getFullYear() !== now.getFullYear()) return false;
+          break;
+        case 'Custom':
+          if (filters.customDateRange) {
+            if (receiptDate < filters.customDateRange.start || 
+                receiptDate > filters.customDateRange.end) {
+              return false;
+            }
+          }
+          break;
+        case 'All Time':
+          // No date filtering
+          break;
       }
+
+      // Price range filter
+      if (receipt.amount < filters.priceRange.min || 
+          receipt.amount > filters.priceRange.max) {
+        return false;
+      }
+
+      // Supplier filter (using merchant as supplier for demo)
+      if (filters.supplier && receipt.merchant !== filters.supplier) {
+        return false;
+      }
+
+      // Tags filter
+      if (filters.tags.length > 0) {
+        const hasAllTags = filters.tags.every(filterTag =>
+          receipt.tags.some(tag => tag.name === filterTag)
+        );
+        if (!hasAllTags) return false;
+      }
+
+      // Additional filters would be implemented here based on receipt properties
+      // For demo purposes, we're only implementing the main filters
 
       return true;
     });
-  }, [receipts, searchQuery, selectedFilters]);
+  }, [receipts, searchQuery, filters]);
 
   // Handle search
   const handleSearch = (text: string) => {
     setSearchQuery(text);
   };
 
-  // Handle filter selection
-  const handleFilterSelect = (filter: string) => {
-    // If it's a date filter, remove other date filters
-    const dateFilters = ['Today', 'This Week', 'This Month', 'All Time'];
-    
-    if (dateFilters.includes(filter)) {
-      // Remove all date filters and add the selected one
-      const nonDateFilters = selectedFilters.filter(f => !dateFilters.includes(f));
-      setSelectedFilters([...nonDateFilters, filter]);
-    } else {
-      // Toggle tag filters
-      if (selectedFilters.includes(filter)) {
-        setSelectedFilters(selectedFilters.filter(f => f !== filter));
-      } else {
-        setSelectedFilters([...selectedFilters, filter]);
-      }
-    }
+  // Handle advanced filter apply
+  const handleAdvancedFiltersApply = () => {
+    setShowAdvancedFilters(false);
   };
 
-  // Get available tags from all receipts
-  const availableTags = useMemo(() => {
-    const tagSet = new Set<string>();
-    receipts.forEach(receipt => {
-      receipt.tags.forEach(tag => tagSet.add(tag.name));
-    });
-    return Array.from(tagSet);
-  }, [receipts]);
 
   // Calculate total for filtered receipts
   const filteredTotal = useMemo(() => {
@@ -562,14 +678,16 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
       width: 32,
     },
     summarySection: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
       paddingHorizontal: 16,
-      paddingVertical: 16,
+      paddingTop: 16,
+      paddingBottom: 8,
       backgroundColor: theme.colors.background,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.colors.card.border,
+    },
+    greetingText: {
+      fontSize: 18,
+      fontWeight: '500',
+      color: theme.colors.text.primary,
+      textAlign: 'center',
     },
     totalAmount: {
       fontSize: 28,
@@ -644,6 +762,13 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
       marginLeft: 72,
       marginRight: 16,
     },
+    warrantyContainer: {
+      flex: 1,
+      paddingTop: 8,
+    },
+    warrantyContent: {
+      paddingBottom: 100,
+    },
   });
 
   return (
@@ -658,58 +783,90 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
         >
           <Ionicons name="chevron-back" size={24} color={theme.colors.text.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Receipts</Text>
+        <Text style={styles.headerTitle}>Receipts & Warranties</Text>
         <View style={styles.headerSpacer} />
       </View>
 
-      {/* Summary Section */}
+      {/* Summary Section with Toggle */}
       <View style={styles.summarySection}>
-        <View>
-          <Text style={styles.totalAmount}>${filteredTotal.toFixed(2)}</Text>
-          <Text style={styles.totalLabel}>
-            {filteredReceipts.length} {filteredReceipts.length === 1 ? 'receipt' : 'receipts'}
-          </Text>
-        </View>
-        <TouchableOpacity style={styles.filterButton} activeOpacity={0.8}>
-          <MaterialIcons name="filter-list" size={20} color={theme.colors.background} />
-          <Text style={styles.filterButtonText}>Filter</Text>
-        </TouchableOpacity>
+        <Text style={styles.greetingText}>Hi {user?.firstName || 'there'}, here are your:</Text>
       </View>
+      
+      {/* Tab Selector */}
+      <BlackbirdTabSelector 
+        selectedTab={selectedTab}
+        onTabChange={setSelectedTab}
+      />
 
       {/* Search Bar */}
       <SearchBar 
         value={searchQuery}
         onChangeText={handleSearch}
+        placeholder={selectedTab === 'receipts' ? 'Search receipts, merchants, amounts...' : 'Search warranties, items, suppliers...'}
       />
 
-      {/* Filter Pills */}
-      <FilterPills
-        selectedFilters={selectedFilters}
-        onFilterSelect={handleFilterSelect}
-        availableTags={availableTags}
-      />
-
-      {/* Receipt List */}
-      {groupedReceipts.length > 0 ? (
-        <SectionList
-          sections={groupedReceipts}
-          keyExtractor={(item) => item.id}
-          renderItem={renderReceiptItem}
-          renderSectionHeader={renderSectionHeader}
-          contentContainerStyle={styles.listContent}
-          stickySectionHeadersEnabled={false}
-          showsVerticalScrollIndicator={false}
+      {/* Filter Pills - Only show for receipts */}
+      {selectedTab === 'receipts' && (
+        <FilterPills
+          filters={filters}
+          onFiltersChange={setFilters}
+          onAdvancedPress={() => setShowAdvancedFilters(true)}
+          advancedFilterCount={advancedFilterCount}
         />
+      )}
+
+      {/* Advanced Filter Sheet */}
+      <AdvancedFilterSheet
+        visible={showAdvancedFilters}
+        onClose={() => setShowAdvancedFilters(false)}
+        filters={filters}
+        onFiltersChange={setFilters}
+        onApply={handleAdvancedFiltersApply}
+      />
+
+      {/* Content based on selected tab */}
+      {selectedTab === 'receipts' ? (
+        // Receipt List
+        groupedReceipts.length > 0 ? (
+          <SectionList
+            sections={groupedReceipts}
+            keyExtractor={(item) => item.id}
+            renderItem={renderReceiptItem}
+            renderSectionHeader={renderSectionHeader}
+            contentContainerStyle={styles.listContent}
+            stickySectionHeadersEnabled={false}
+            showsVerticalScrollIndicator={false}
+          />
+        ) : (
+          <View style={styles.emptyState}>
+            <Ionicons name="document-text-outline" size={64} color={theme.colors.text.tertiary} />
+            <Text style={styles.emptyStateTitle}>No receipts found</Text>
+            <Text style={styles.emptyStateText}>
+              {searchQuery ? 
+                `No receipts match "${searchQuery}"` : 
+                'No receipts match the selected filters'}
+            </Text>
+          </View>
+        )
       ) : (
-        <View style={styles.emptyState}>
-          <Ionicons name="document-text-outline" size={64} color={theme.colors.text.tertiary} />
-          <Text style={styles.emptyStateTitle}>No receipts found</Text>
-          <Text style={styles.emptyStateText}>
-            {searchQuery ? 
-              `No receipts match "${searchQuery}"` : 
-              'No receipts match the selected filters'}
-          </Text>
-        </View>
+        // Warranty List
+        <ScrollView 
+          style={styles.warrantyContainer}
+          contentContainerStyle={styles.warrantyContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {sortedWarranties.map((warranty) => (
+            <WarrantyCard
+              key={warranty.id}
+              itemName={warranty.itemName}
+              serialNumber={warranty.serialNumber}
+              purchaseDate={warranty.purchaseDate}
+              expiryDate={warranty.expiryDate}
+              supplier={warranty.supplier}
+              onPress={() => console.log(`Warranty ${warranty.id} pressed`)}
+            />
+          ))}
+        </ScrollView>
       )}
     </SafeAreaView>
   );
