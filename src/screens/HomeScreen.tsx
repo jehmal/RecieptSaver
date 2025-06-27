@@ -11,18 +11,26 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
+import { useAuth } from '../contexts/AuthContext';
 
 // Import all components
-import MonthlyTotalDisplay from '../components/home/MonthlyTotalDisplay';
-import ProgressCard from '../components/home/ProgressCard';
 import BlackbirdTabSelector from '../components/home/BlackbirdTabSelector';
 import MerchantCard from '../components/home/MerchantCard';
 import FeaturedMerchantCard from '../components/home/FeaturedMerchantCard';
+import DailySummaryCard from '../components/home/DailySummaryCard';
 
 const HomeScreen: React.FC = () => {
   const [selectedTab, setSelectedTab] = useState<'receipts' | 'analytics'>('receipts');
   const { theme } = useTheme();
   const navigation = useNavigation<any>();
+  const { user } = useAuth();
+
+  // Sample daily summary data
+  const dailySummaryData = {
+    receiptsToday: 3,
+    totalSpendToday: 247.50,
+    syncStatus: 'synced' as const,
+  };
 
   // Sample data for recent receipts
   const recentReceipts = [
@@ -110,6 +118,21 @@ const HomeScreen: React.FC = () => {
       color: theme.colors.accent.primary,
       fontWeight: '500',
     },
+    greetingSection: {
+      paddingHorizontal: theme.spacing.lg,
+      marginBottom: theme.spacing.xl,
+    },
+    greetingText: {
+      fontSize: 32,
+      fontWeight: '700',
+      color: theme.colors.text.primary,
+      marginBottom: theme.spacing.xs,
+    },
+    subGreetingText: {
+      fontSize: 18,
+      fontWeight: '400',
+      color: theme.colors.text.secondary,
+    },
   });
 
   return (
@@ -135,21 +158,18 @@ const HomeScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Monthly Total Display Section */}
-        <MonthlyTotalDisplay 
-          amount="$2,348.67"
-          month="OCT"
-          year="2024"
-          onPillPress={() => console.log('Month selector pressed')}
-        />
+        {/* Greeting Section */}
+        <View style={styles.greetingSection}>
+          <Text style={styles.greetingText}>Hi {user?.firstName || 'there'}!</Text>
+          <Text style={styles.subGreetingText}>Your receipts, organized</Text>
+        </View>
 
-        {/* Progress Card Section */}
-        <ProgressCard 
-          receiptCount={87}
-          receiptGoal={120}
-          budgetSpent={2348}
-          budgetTotal={3000}
-          onPress={() => console.log('Progress card pressed')}
+        {/* Daily Summary Card */}
+        <DailySummaryCard
+          receiptsToday={dailySummaryData.receiptsToday}
+          totalSpendToday={dailySummaryData.totalSpendToday}
+          syncStatus={dailySummaryData.syncStatus}
+          onPress={() => console.log('Daily summary pressed')}
         />
 
         {/* Tab Selector Section */}
