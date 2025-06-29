@@ -11,21 +11,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { format, parseISO, isValid, isToday, isYesterday } from 'date-fns';
 
-// TypeScript interfaces
-export interface Receipt {
-  id: string;
-  imageUri: string;
-  thumbnailUri: string;
-  merchant: string;
-  amount: number;
-  date: string;
-  category?: string;
-  notes?: string;
-  isSynced: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
+// Import Receipt type from context
+import { Receipt } from '../../contexts/ReceiptContext';
 
 interface ReceiptCardProps {
   receipt: Receipt;
@@ -123,23 +112,34 @@ const ReceiptCard: React.FC<ReceiptCardProps> = ({
     return `$${amount.toFixed(2)}`;
   };
 
-  // Format date
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    if (date.toDateString() === today.toDateString()) {
-      return 'Today';
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      return 'Yesterday';
-    } else {
-      return date.toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric',
-        year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
-      });
+  // Format date with proper error handling using date-fns
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return 'No date';
+    
+    try {
+      const date = parseISO(dateString);
+      if (!isValid(date)) {
+        // Try parsing as regular Date if ISO parsing fails
+        const fallbackDate = new Date(dateString);
+        if (!isValid(fallbackDate)) return 'Invalid date';
+        
+        if (isToday(fallbackDate)) return 'Today';
+        if (isYesterday(fallbackDate)) return 'Yesterday';
+        
+        const currentYear = new Date().getFullYear();
+        const dateYear = fallbackDate.getFullYear();
+        return format(fallbackDate, dateYear === currentYear ? 'MMM d' : 'MMM d, yyyy');
+      }
+      
+      if (isToday(date)) return 'Today';
+      if (isYesterday(date)) return 'Yesterday';
+      
+      const currentYear = new Date().getFullYear();
+      const dateYear = date.getFullYear();
+      return format(date, dateYear === currentYear ? 'MMM d' : 'MMM d, yyyy');
+    } catch (error) {
+      console.error('Error formatting date in ReceiptCard:', error);
+      return 'Invalid date';
     }
   };
 

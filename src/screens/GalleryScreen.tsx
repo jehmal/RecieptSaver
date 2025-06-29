@@ -19,8 +19,11 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import ReceiptCard, { Receipt } from '../components/gallery/ReceiptCard';
+import ReceiptCard from '../components/gallery/ReceiptCard';
+import { Receipt, useReceipts } from '../contexts/ReceiptContext';
 import { mockReceipts, mockApi } from '../utils/mockData';
+import { PinchGridView, GestureHints } from '../components/gestures';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // Get device dimensions
 const { width: screenWidth } = Dimensions.get('window');
@@ -56,10 +59,14 @@ interface GalleryState {
   isMultiSelectMode: boolean;
   loadingMore: boolean;
   hasMore: boolean;
+  gridColumns: number;
 }
 
 
 const GalleryScreen: React.FC = () => {
+  // Get receipts from context
+  const { receipts: contextReceipts, addReceipt, isLoading: contextLoading } = useReceipts();
+  
   // State management
   const [state, setState] = useState<GalleryState>({
     receipts: [],
@@ -80,6 +87,7 @@ const GalleryScreen: React.FC = () => {
     isMultiSelectMode: false,
     loadingMore: false,
     hasMore: true,
+    gridColumns: getColumns(),
   });
 
   // Refs
@@ -88,33 +96,28 @@ const GalleryScreen: React.FC = () => {
   const searchAnimation = useRef(new Animated.Value(0)).current;
   const fabScale = useRef(new Animated.Value(1)).current;
 
-  // Load initial data
+  // Load initial data and populate context if empty
   useEffect(() => {
-    loadReceipts();
-  }, []);
+    if (contextReceipts.length === 0 && !contextLoading) {
+      // Initialize with mock data if context is empty
+      mockApi.receipts.getAll().then(mockData => {
+        mockData.forEach(receipt => {
+          addReceipt(receipt);
+        });
+      });
+    }
+    
+    setState(prev => ({
+      ...prev,
+      receipts: contextReceipts,
+      isLoading: contextLoading,
+    }));
+  }, [contextReceipts, contextLoading]);
 
   // Filter receipts based on search and filters
   useEffect(() => {
     filterReceipts();
   }, [state.receipts, state.searchQuery, state.activeFilters]);
-
-  // Load receipts
-  const loadReceipts = async () => {
-    try {
-      const receipts = await mockApi.receipts.getAll();
-      setState(prev => ({
-        ...prev,
-        receipts,
-        isLoading: false,
-      }));
-    } catch (error) {
-      console.error('Error loading receipts:', error);
-      setState(prev => ({
-        ...prev,
-        isLoading: false,
-      }));
-    }
-  };
 
   // Load more receipts for infinite scroll
   const loadMoreReceipts = async () => {
@@ -190,10 +193,11 @@ const GalleryScreen: React.FC = () => {
     setState(prev => ({ ...prev, isRefreshing: true }));
     
     try {
-      const receipts = await mockApi.receipts.getAll();
+      // In a real app, this would sync with backend
+      // For now, just update the state from context
       setState(prev => ({
         ...prev,
-        receipts,
+        receipts: contextReceipts,
         isRefreshing: false,
         selectedReceipts: [],
         isMultiSelectMode: false,
@@ -202,7 +206,7 @@ const GalleryScreen: React.FC = () => {
       console.error('Error refreshing receipts:', error);
       setState(prev => ({ ...prev, isRefreshing: false }));
     }
-  }, []);
+  }, [contextReceipts]);
 
   // Toggle search visibility
   const toggleSearch = () => {
@@ -371,10 +375,11 @@ const GalleryScreen: React.FC = () => {
   }
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
-      
-      <SafeAreaView style={styles.safeArea}>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <View style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
+        
+        <SafeAreaView style={styles.safeArea}>
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Receipt Gallery</Text>
@@ -482,36 +487,49 @@ const GalleryScreen: React.FC = () => {
         )}
 
         {/* Receipt grid */}
-        <FlatList
-          ref={flatListRef}
-          data={state.filteredReceipts}
-          renderItem={renderReceiptCard}
-          keyExtractor={item => item.id}
-          numColumns={getColumns()}
-          columnWrapperStyle={getColumns() > 1 ? styles.row : undefined}
-          contentContainerStyle={[
-            styles.gridContent,
-            state.filteredReceipts.length === 0 && styles.emptyContent,
-          ]}
-          refreshControl={
-            <RefreshControl
-              refreshing={state.isRefreshing}
-              onRefresh={onRefresh}
-              colors={['#2563EB']}
-              tintColor="#2563EB"
+        <PinchGridView
+          minColumns={isTablet ? 3 : 2}
+          maxColumns={isTablet ? 6 : 4}
+          defaultColumns={state.gridColumns}
+          onColumnsChange={(columns) => {
+            setState(prev => ({ ...prev, gridColumns: columns }));
+          }}
+          enabled={!state.isMultiSelectMode}
+        >
+          {(columns) => (
+            <FlatList
+              ref={flatListRef}
+              data={state.filteredReceipts}
+              renderItem={renderReceiptCard}
+              keyExtractor={item => item.id}
+              numColumns={columns}
+              key={columns} // Force re-render when columns change
+              columnWrapperStyle={columns > 1 ? styles.row : undefined}
+              contentContainerStyle={[
+                styles.gridContent,
+                state.filteredReceipts.length === 0 && styles.emptyContent,
+              ]}
+              refreshControl={
+                <RefreshControl
+                  refreshing={state.isRefreshing}
+                  onRefresh={onRefresh}
+                  colors={['#2563EB']}
+                  tintColor="#2563EB"
+                />
+              }
+              onEndReached={loadMoreReceipts}
+              onEndReachedThreshold={0.5}
+              ListEmptyComponent={renderEmptyState}
+              ListFooterComponent={
+                state.loadingMore ? (
+                  <View style={styles.loadingMore}>
+                    <ActivityIndicator size="small" color="#2563EB" />
+                  </View>
+                ) : null
+              }
             />
-          }
-          onEndReached={loadMoreReceipts}
-          onEndReachedThreshold={0.5}
-          ListEmptyComponent={renderEmptyState}
-          ListFooterComponent={
-            state.loadingMore ? (
-              <View style={styles.loadingMore}>
-                <ActivityIndicator size="small" color="#2563EB" />
-              </View>
-            ) : null
-          }
-        />
+          )}
+        </PinchGridView>
 
         {/* Floating Action Button */}
         <TouchableOpacity
@@ -530,8 +548,12 @@ const GalleryScreen: React.FC = () => {
             <Ionicons name="camera" size={28} color="white" />
           </Animated.View>
         </TouchableOpacity>
+        
+        {/* Gesture Hints */}
+        <GestureHints screen="gallery" />
       </SafeAreaView>
     </View>
+    </GestureHandlerRootView>
   );
 };
 

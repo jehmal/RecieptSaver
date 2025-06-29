@@ -9,6 +9,7 @@ import { AppNavigator } from './src/navigation/AppNavigator';
 import { ThemeProvider } from './src/contexts/ThemeContext';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { ErrorProvider } from './src/contexts/ErrorContext';
+import { ReceiptProvider } from './src/contexts/ReceiptContext';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -40,11 +41,13 @@ export default function App() {
       <ThemeProvider>
         <AuthProvider>
           <ErrorProvider>
-            <PaperProvider>
-              <StatusBar style="auto" />
-              <AppNavigator />
-              <Toast />
-            </PaperProvider>
+            <ReceiptProvider>
+              <PaperProvider>
+                <StatusBar style="auto" />
+                <AppNavigator />
+                <Toast />
+              </PaperProvider>
+            </ReceiptProvider>
           </ErrorProvider>
         </AuthProvider>
       </ThemeProvider>

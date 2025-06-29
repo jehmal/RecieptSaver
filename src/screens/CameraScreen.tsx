@@ -10,11 +10,40 @@ import {
   SafeAreaView,
   StatusBar,
   ActivityIndicator,
+  Alert,
+  Modal,
+  ScrollView,
 } from 'react-native';
 import { Camera, CameraType, FlashMode } from 'expo-camera';
+import * as FileSystem from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
+import { useNavigation } from '@react-navigation/native';
+import ocrService from '../services/ocrService';
+import {
+  PinchGestureHandler,
+  State as GestureState,
+  PinchGestureHandlerStateChangeEvent,
+  TapGestureHandler,
+  TapGestureHandlerStateChangeEvent,
+  GestureHandlerRootView,
+} from 'react-native-gesture-handler';
+import { GestureHints } from '../components/gestures';
+import WebCamera from '../components/camera/WebCamera';
+
+// Fallback values for web
+const CameraTypeFallback = {
+  back: 'back' as any,
+  front: 'front' as any,
+};
+
+const FlashModeFallback = {
+  on: 'on' as any,
+  off: 'off' as any,
+  auto: 'auto' as any,
+  torch: 'torch' as any,
+};
 
 // Get device dimensions
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -28,6 +57,11 @@ interface CameraState {
   edgesDetected: boolean;
   countdownValue: number | null;
   lastCapture: string | null;
+  isProcessing: boolean;
+  showResults: boolean;
+  ocrResults: any | null;
+  zoom: number;
+  cameraType: CameraType | string;
 }
 
 interface EdgeCorner {
@@ -39,6 +73,14 @@ interface EdgeCorner {
 
 const CameraScreen: React.FC = () => {
   const { theme, themeMode } = useTheme();
+  const navigation = useNavigation<any>();
+  
+  // Add back method if missing (temporary fix)
+  useEffect(() => {
+    if (navigation && !navigation.back && navigation.goBack) {
+      (navigation as any).back = navigation.goBack;
+    }
+  }, [navigation]);
   
   // State management
   const [state, setState] = useState<CameraState>({
@@ -48,6 +90,11 @@ const CameraScreen: React.FC = () => {
     edgesDetected: false,
     countdownValue: null,
     lastCapture: null,
+    isProcessing: false,
+    showResults: false,
+    ocrResults: null,
+    zoom: 0,
+    cameraType: Platform.OS === 'web' ? CameraTypeFallback.back : (CameraType?.back || CameraTypeFallback.back),
   });
 
   // Refs
@@ -65,8 +112,20 @@ const CameraScreen: React.FC = () => {
   // Request camera permissions on mount
   useEffect(() => {
     (async () => {
-      const { status } = await Camera.requestCameraPermissionsAsync();
-      setState((prev) => ({ ...prev, hasPermission: status === 'granted' }));
+      try {
+        // Check if running on web
+        if (Platform.OS === 'web') {
+          // On web, we'll use a different approach
+          setState((prev) => ({ ...prev, hasPermission: true }));
+          return;
+        }
+        
+        const { status } = await Camera.requestCameraPermissionsAsync();
+        setState((prev) => ({ ...prev, hasPermission: status === 'granted' }));
+      } catch (error) {
+        console.error('Error requesting camera permissions:', error);
+        setState((prev) => ({ ...prev, hasPermission: false }));
+      }
     })();
   }, []);
 
@@ -154,6 +213,64 @@ const CameraScreen: React.FC = () => {
     }
   };
 
+  // Handle web camera capture
+  const handleWebCapture = async (imageData: string) => {
+    setState((prev) => ({ ...prev, isCapturing: true }));
+
+    try {
+      // Save image data (base64) to a temporary location
+      const fileName = `receipt_${Date.now()}.jpg`;
+      const newUri = Platform.OS === 'web' ? imageData : FileSystem.documentDirectory + fileName;
+      
+      if (Platform.OS !== 'web') {
+        // Convert base64 to file for native platforms
+        await FileSystem.writeAsStringAsync(newUri, imageData.replace(/^data:image\/\w+;base64,/, ''), {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+      }
+
+      // Update state with captured image
+      setState((prev) => ({ ...prev, lastCapture: newUri, isProcessing: true }));
+      
+      try {
+        // Process the image with OCR
+        const ocrResults = await ocrService.processImage(newUri);
+        
+        // Validate results
+        if (ocrService.validateResult(ocrResults)) {
+          setState((prev) => ({ 
+            ...prev, 
+            ocrResults,
+            showResults: true,
+            isProcessing: false 
+          }));
+        } else {
+          Alert.alert(
+            'Processing Failed',
+            'Unable to extract receipt information. Please try again with better lighting or a clearer image.',
+            [{ text: 'OK', onPress: () => setState((prev) => ({ ...prev, isProcessing: false })) }]
+          );
+        }
+      } catch (ocrError) {
+        console.error('OCR Error:', ocrError);
+        Alert.alert(
+          'Processing Error',
+          'An error occurred while processing the image. Please try again.',
+          [{ text: 'OK', onPress: () => setState((prev) => ({ ...prev, isProcessing: false })) }]
+        );
+      }
+    } catch (error) {
+      console.error('Error capturing photo:', error);
+      Alert.alert(
+        'Capture Error',
+        'Failed to capture photo. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setState((prev) => ({ ...prev, isCapturing: false, edgesDetected: false }));
+    }
+  };
+
   // Handle capture
   const handleCapture = async () => {
     if (cameraRef.current && !state.isCapturing) {
@@ -200,8 +317,17 @@ const CameraScreen: React.FC = () => {
           skipProcessing: false,
         });
 
+        // Save image to a permanent location
+        const fileName = `receipt_${Date.now()}.jpg`;
+        const newUri = FileSystem.documentDirectory + fileName;
+        
+        await FileSystem.copyAsync({
+          from: photo.uri,
+          to: newUri,
+        });
+
         // Animate captured image to corner
-        setState((prev) => ({ ...prev, lastCapture: photo.uri }));
+        setState((prev) => ({ ...prev, lastCapture: newUri }));
         
         Animated.parallel([
           Animated.timing(capturedImageOpacity, {
@@ -222,11 +348,43 @@ const CameraScreen: React.FC = () => {
           }, 1000);
         });
 
-        // Process the captured image
-        console.log('Photo captured:', photo.uri);
-        // Here you would typically save the image and navigate to detail screen
+        // Start OCR processing
+        setState((prev) => ({ ...prev, isProcessing: true }));
+        
+        try {
+          // Process the image with OCR
+          const ocrResults = await ocrService.processImage(newUri);
+          
+          // Validate results
+          if (ocrService.validateResult(ocrResults)) {
+            setState((prev) => ({ 
+              ...prev, 
+              ocrResults,
+              showResults: true,
+              isProcessing: false 
+            }));
+          } else {
+            Alert.alert(
+              'Processing Failed',
+              'Unable to extract receipt information. Please try again with better lighting or a clearer image.',
+              [{ text: 'OK', onPress: () => setState((prev) => ({ ...prev, isProcessing: false })) }]
+            );
+          }
+        } catch (ocrError) {
+          console.error('OCR Error:', ocrError);
+          Alert.alert(
+            'Processing Error',
+            'An error occurred while processing the image. Please try again.',
+            [{ text: 'OK', onPress: () => setState((prev) => ({ ...prev, isProcessing: false })) }]
+          );
+        }
       } catch (error) {
         console.error('Error capturing photo:', error);
+        Alert.alert(
+          'Capture Error',
+          'Failed to capture photo. Please try again.',
+          [{ text: 'OK' }]
+        );
       } finally {
         setState((prev) => ({ ...prev, isCapturing: false, edgesDetected: false }));
       }
@@ -240,14 +398,56 @@ const CameraScreen: React.FC = () => {
 
   // Navigate to gallery
   const navigateToGallery = () => {
-    console.log('Navigate to gallery');
-    // Navigation logic would go here
+    if (navigation && navigation.navigate) {
+      navigation.navigate('Search');
+    }
   };
 
   // Close camera (if not default screen)
   const closeCamera = () => {
-    console.log('Close camera');
-    // Navigation logic would go here
+    try {
+      if (navigation && navigation.navigate) {
+        navigation.navigate('Home');
+      } else {
+        console.error('Navigation not available');
+      }
+    } catch (error) {
+      console.error('Error navigating:', error);
+    }
+  };
+
+  // Handle OCR result confirmation
+  const handleConfirmResults = () => {
+    // Save the receipt data to storage/database
+    // For now, we'll navigate to the search screen where receipts are listed
+    const receiptData = {
+      ...state.ocrResults,
+      imageUri: state.lastCapture,
+      createdAt: new Date().toISOString(),
+    };
+    
+    // Reset state
+    setState((prev) => ({
+      ...prev,
+      showResults: false,
+      ocrResults: null,
+      lastCapture: null,
+    }));
+    
+    // Navigate to search/receipts screen
+    if (navigation && navigation.navigate) {
+      navigation.navigate('Search', { newReceipt: receiptData });
+    }
+  };
+
+  // Handle retake
+  const handleRetake = () => {
+    setState((prev) => ({
+      ...prev,
+      showResults: false,
+      ocrResults: null,
+      lastCapture: null,
+    }));
   };
 
   const styles = StyleSheet.create({
@@ -407,6 +607,105 @@ const CameraScreen: React.FC = () => {
       textAlign: 'center',
       paddingHorizontal: 32,
     },
+    processingOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    processingContainer: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: 16,
+      padding: 32,
+      alignItems: 'center',
+      ...theme.shadows.lg,
+    },
+    processingText: {
+      fontSize: 18,
+      fontWeight: '600',
+      marginTop: 16,
+      color: theme.colors.text.primary,
+    },
+    resultsModal: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    resultsHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.card.border,
+    },
+    resultsTitle: {
+      fontSize: 20,
+      fontWeight: '600',
+      color: theme.colors.text.primary,
+    },
+    resultsContent: {
+      flex: 1,
+      padding: 16,
+    },
+    resultItem: {
+      marginBottom: 16,
+    },
+    resultLabel: {
+      fontSize: 14,
+      color: theme.colors.text.secondary,
+      marginBottom: 4,
+    },
+    resultValue: {
+      fontSize: 16,
+      fontWeight: '500',
+      color: theme.colors.text.primary,
+    },
+    itemsList: {
+      marginTop: 8,
+    },
+    itemRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingVertical: 8,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: theme.colors.card.border,
+    },
+    itemName: {
+      flex: 1,
+      fontSize: 14,
+      color: theme.colors.text.primary,
+    },
+    itemPrice: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.colors.text.primary,
+    },
+    resultsFooter: {
+      flexDirection: 'row',
+      padding: 16,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.card.border,
+      gap: 12,
+    },
+    footerButton: {
+      flex: 1,
+      paddingVertical: 12,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    retakeButton: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.card.border,
+    },
+    confirmButton: {
+      backgroundColor: theme.colors.accent.primary,
+    },
+    buttonText: {
+      fontSize: 16,
+      fontWeight: '600',
+    },
   });
 
   // Render loading or permission denied
@@ -429,17 +728,170 @@ const CameraScreen: React.FC = () => {
     );
   }
 
+  // Check if Camera component is available (might not be on web)
+  if (Platform.OS !== 'web' && !Camera) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <Text style={[styles.permissionText, { color: theme.colors.text.primary }]}>Camera not available</Text>
+        <Text style={[styles.permissionSubtext, { color: theme.colors.text.secondary }]}>
+          The camera component is not available on this platform
+        </Text>
+      </View>
+    );
+  }
+
+  // Handle pinch to zoom
+  const handlePinchGesture = (event: PinchGestureHandlerStateChangeEvent) => {
+    if (event.nativeEvent.state === GestureState.ACTIVE) {
+      const scale = event.nativeEvent.scale;
+      const newZoom = Math.max(0, Math.min(1, (scale - 1) * 0.5));
+      setState(prev => ({ ...prev, zoom: newZoom }));
+    }
+  };
+
+  // Handle double tap to switch camera
+  const handleDoubleTap = (event: TapGestureHandlerStateChangeEvent) => {
+    if (event.nativeEvent.state === GestureState.ACTIVE) {
+      const backType = CameraType?.back || CameraTypeFallback.back;
+      const frontType = CameraType?.front || CameraTypeFallback.front;
+      const newType = state.cameraType === backType ? frontType : backType;
+      setState(prev => ({ ...prev, cameraType: newType }));
+      if (Platform.OS !== 'web') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+    }
+  };
+
+  // Render web camera for web platform
+  if (Platform.OS === 'web') {
+    return (
+      <View style={{ flex: 1 }}>
+        <WebCamera
+          onCapture={handleWebCapture}
+          onClose={closeCamera}
+          isFlashOn={state.isFlashOn}
+          onToggleFlash={toggleFlash}
+        />
+
+        {/* Processing Overlay */}
+        {state.isProcessing && (
+          <View style={styles.processingOverlay}>
+            <View style={styles.processingContainer}>
+              <ActivityIndicator size="large" color={theme.colors.accent.primary} />
+              <Text style={styles.processingText}>Processing receipt...</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Results Modal */}
+        <Modal
+          visible={state.showResults}
+          animationType="slide"
+          presentationStyle="fullScreen"
+          onRequestClose={handleRetake}
+        >
+          <SafeAreaView style={styles.resultsModal}>
+            <StatusBar barStyle={themeMode === 'dark' ? 'light-content' : 'dark-content'} />
+            
+            {/* Header */}
+            <View style={styles.resultsHeader}>
+              <Text style={styles.resultsTitle}>Receipt Details</Text>
+              <TouchableOpacity onPress={handleRetake}>
+                <Ionicons name="close" size={24} color={theme.colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Content */}
+            <ScrollView style={styles.resultsContent}>
+              {state.ocrResults && (
+                <>
+                  <View style={styles.resultItem}>
+                    <Text style={styles.resultLabel}>Merchant</Text>
+                    <Text style={styles.resultValue}>
+                      {state.ocrResults.merchantName || 'Unknown'}
+                    </Text>
+                  </View>
+
+                  <View style={styles.resultItem}>
+                    <Text style={styles.resultLabel}>Date</Text>
+                    <Text style={styles.resultValue}>
+                      {state.ocrResults.date ? new Date(state.ocrResults.date).toLocaleDateString() : 'Unknown'}
+                    </Text>
+                  </View>
+
+                  <View style={styles.resultItem}>
+                    <Text style={styles.resultLabel}>Total Amount</Text>
+                    <Text style={styles.resultValue}>
+                      ${state.ocrResults.totalAmount?.toFixed(2) || '0.00'}
+                    </Text>
+                  </View>
+
+                  {state.ocrResults.items && state.ocrResults.items.length > 0 && (
+                    <View style={styles.resultItem}>
+                      <Text style={styles.resultLabel}>Items</Text>
+                      <View style={styles.itemsList}>
+                        {state.ocrResults.items.map((item: any, index: number) => (
+                          <View key={index} style={styles.itemRow}>
+                            <Text style={styles.itemName}>
+                              {item.name} {item.quantity > 1 ? `x${item.quantity}` : ''}
+                            </Text>
+                            <Text style={styles.itemPrice}>
+                              ${item.price.toFixed(2)}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+                </>
+              )}
+            </ScrollView>
+
+            {/* Footer */}
+            <View style={styles.resultsFooter}>
+              <TouchableOpacity
+                style={[styles.footerButton, styles.retakeButton]}
+                onPress={handleRetake}
+              >
+                <Text style={[styles.buttonText, { color: theme.colors.text.primary }]}>
+                  Retake
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.footerButton, styles.confirmButton]}
+                onPress={handleConfirmResults}
+              >
+                <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>
+                  Save Receipt
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </SafeAreaView>
+        </Modal>
+      </View>
+    );
+  }
+
   return (
-    <View style={[styles.container, { backgroundColor: '#000' }]}>
-      <StatusBar barStyle="light-content" />
-      
-      {/* Camera View */}
-      <Camera
-        ref={cameraRef}
-        style={isTablet ? styles.tabletCamera : styles.camera}
-        type={CameraType.back}
-        flashMode={state.isFlashOn ? FlashMode.on : FlashMode.off}
-      >
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <View style={[styles.container, { backgroundColor: '#000' }]}>
+        <StatusBar barStyle="light-content" />
+        
+        {/* Camera View */}
+        <TapGestureHandler
+          numberOfTaps={2}
+          onHandlerStateChange={handleDoubleTap}
+        >
+          <Animated.View style={{ flex: 1 }}>
+            <PinchGestureHandler onHandlerStateChange={handlePinchGesture}>
+              <Animated.View style={{ flex: 1 }}>
+                <Camera
+                  ref={cameraRef}
+                  style={isTablet ? styles.tabletCamera : styles.camera}
+                  type={state.cameraType}
+                  flashMode={state.isFlashOn ? (FlashMode?.on || FlashModeFallback.on) : (FlashMode?.off || FlashModeFallback.off)}
+                  zoom={state.zoom}
+                >
         {/* Flash overlay for shutter effect */}
         <Animated.View
           style={[
@@ -558,13 +1010,17 @@ const CameraScreen: React.FC = () => {
             pointerEvents="none"
           />
         )}
-      </Camera>
+                </Camera>
+              </Animated.View>
+            </PinchGestureHandler>
+          </Animated.View>
+        </TapGestureHandler>
 
-      {/* Capture Button */}
-      <View style={styles.captureButtonContainer}>
+        {/* Capture Button */}
+        <View style={styles.captureButtonContainer}>
         <TouchableOpacity
           onPress={handleCapture}
-          disabled={state.isCapturing || state.countdownValue !== null}
+          disabled={state.isCapturing || state.countdownValue !== null || state.isProcessing}
           activeOpacity={0.8}
         >
           <Animated.View
@@ -580,7 +1036,107 @@ const CameraScreen: React.FC = () => {
           </Animated.View>
         </TouchableOpacity>
       </View>
+
+      {/* Processing Overlay */}
+      {state.isProcessing && (
+        <View style={styles.processingOverlay}>
+          <View style={styles.processingContainer}>
+            <ActivityIndicator size="large" color={theme.colors.accent.primary} />
+            <Text style={styles.processingText}>Processing receipt...</Text>
+          </View>
+        </View>
+      )}
+
+      {/* Results Modal */}
+      <Modal
+        visible={state.showResults}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={handleRetake}
+      >
+        <SafeAreaView style={styles.resultsModal}>
+          <StatusBar barStyle={themeMode === 'dark' ? 'light-content' : 'dark-content'} />
+          
+          {/* Header */}
+          <View style={styles.resultsHeader}>
+            <Text style={styles.resultsTitle}>Receipt Details</Text>
+            <TouchableOpacity onPress={handleRetake}>
+              <Ionicons name="close" size={24} color={theme.colors.text.primary} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Content */}
+          <ScrollView style={styles.resultsContent}>
+            {state.ocrResults && (
+              <>
+                <View style={styles.resultItem}>
+                  <Text style={styles.resultLabel}>Merchant</Text>
+                  <Text style={styles.resultValue}>
+                    {state.ocrResults.merchantName || 'Unknown'}
+                  </Text>
+                </View>
+
+                <View style={styles.resultItem}>
+                  <Text style={styles.resultLabel}>Date</Text>
+                  <Text style={styles.resultValue}>
+                    {state.ocrResults.date ? new Date(state.ocrResults.date).toLocaleDateString() : 'Unknown'}
+                  </Text>
+                </View>
+
+                <View style={styles.resultItem}>
+                  <Text style={styles.resultLabel}>Total Amount</Text>
+                  <Text style={styles.resultValue}>
+                    ${state.ocrResults.totalAmount?.toFixed(2) || '0.00'}
+                  </Text>
+                </View>
+
+                {state.ocrResults.items && state.ocrResults.items.length > 0 && (
+                  <View style={styles.resultItem}>
+                    <Text style={styles.resultLabel}>Items</Text>
+                    <View style={styles.itemsList}>
+                      {state.ocrResults.items.map((item: any, index: number) => (
+                        <View key={index} style={styles.itemRow}>
+                          <Text style={styles.itemName}>
+                            {item.name} {item.quantity > 1 ? `x${item.quantity}` : ''}
+                          </Text>
+                          <Text style={styles.itemPrice}>
+                            ${item.price.toFixed(2)}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+              </>
+            )}
+          </ScrollView>
+
+          {/* Footer */}
+          <View style={styles.resultsFooter}>
+            <TouchableOpacity
+              style={[styles.footerButton, styles.retakeButton]}
+              onPress={handleRetake}
+            >
+              <Text style={[styles.buttonText, { color: theme.colors.text.primary }]}>
+                Retake
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.footerButton, styles.confirmButton]}
+              onPress={handleConfirmResults}
+            >
+              <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>
+                Save Receipt
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </Modal>
+      
+      {/* Gesture Hints */}
+      <GestureHints screen="camera" />
     </View>
+    </GestureHandlerRootView>
   );
 };
 

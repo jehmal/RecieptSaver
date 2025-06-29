@@ -20,8 +20,9 @@ import {
 } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { Receipt } from '../components/gallery/ReceiptCard';
+import { format, parseISO, isValid } from 'date-fns';
 import { useTheme } from '../contexts/ThemeContext';
+import { useReceipts, Receipt } from '../contexts/ReceiptContext';
 import {
   ReceiptImageViewer,
   ReceiptInfoGrid,
@@ -29,6 +30,7 @@ import {
   ActionButtons,
   Tag as ComponentTag,
 } from '../components/receipt';
+import ReceiptEditForm from '../components/receipt/ReceiptEditForm';
 
 // Navigation types
 interface ReceiptDetailScreenProps {
@@ -51,6 +53,7 @@ const DISMISS_THRESHOLD = 150;
 const ReceiptDetailScreen: React.FC<ReceiptDetailScreenProps> = ({ navigation, route }) => {
   const { receipt } = route.params;
   const { theme, themeMode } = useTheme();
+  const { updateReceipt } = useReceipts();
   
   // State
   const [hasImageError, setHasImageError] = useState(false);
@@ -61,30 +64,50 @@ const ReceiptDetailScreen: React.FC<ReceiptDetailScreenProps> = ({ navigation, r
     { id: '4', name: 'Reimbursable', label: 'Reimbursable', isSelected: false },
   ]);
   const [showMenuModal, setShowMenuModal] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [receiptData, setReceiptData] = useState<Receipt>(receipt);
 
   // Animation values
   const translateY = useRef(new Animated.Value(screenHeight)).current;
   const modalOpacity = useRef(new Animated.Value(0)).current;
   const gestureTranslateY = useRef(new Animated.Value(0)).current;
 
-  // Format date function
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric' 
-    });
+  // Format date function with proper error handling
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return 'No date';
+    
+    try {
+      const date = parseISO(dateString);
+      if (!isValid(date)) {
+        // Try parsing as regular Date if ISO parsing fails
+        const fallbackDate = new Date(dateString);
+        if (!isValid(fallbackDate)) return 'Invalid date';
+        return format(fallbackDate, 'MMM d, yyyy');
+      }
+      return format(date, 'MMM d, yyyy');
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Invalid date';
+    }
   };
 
-  // Format time function
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit',
-      hour12: true 
-    });
+  // Format time function with proper error handling
+  const formatTime = (dateString: string | null | undefined) => {
+    if (!dateString) return 'No time';
+    
+    try {
+      const date = parseISO(dateString);
+      if (!isValid(date)) {
+        // Try parsing as regular Date if ISO parsing fails
+        const fallbackDate = new Date(dateString);
+        if (!isValid(fallbackDate)) return 'Invalid time';
+        return format(fallbackDate, 'h:mm a');
+      }
+      return format(date, 'h:mm a');
+    } catch (error) {
+      console.error('Error formatting time:', error);
+      return 'Invalid time';
+    }
   };
 
   // Entry animation
@@ -186,6 +209,12 @@ const ReceiptDetailScreen: React.FC<ReceiptDetailScreenProps> = ({ navigation, r
     setShowMenuModal(false);
     
     switch (action) {
+      case 'edit':
+        setIsEditing(true);
+        if (Platform.OS !== 'web') {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+        break;
       case 'export-pdf':
         Alert.alert('Export PDF', 'Receipt exported as PDF');
         break;
@@ -233,6 +262,34 @@ const ReceiptDetailScreen: React.FC<ReceiptDetailScreenProps> = ({ navigation, r
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
     Alert.alert('Share Receipt', 'Share options will appear here');
+  };
+
+  // Handle save from edit form
+  const handleSaveReceipt = async (updatedReceipt: Receipt) => {
+    try {
+      console.log('Saving receipt with ID:', updatedReceipt.id);
+      console.log('Updated data:', updatedReceipt);
+      
+      // Update in context/global state
+      await updateReceipt(updatedReceipt.id, updatedReceipt);
+      
+      // Update local state
+      setReceiptData(updatedReceipt);
+      setIsEditing(false);
+      
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      Alert.alert('Success', 'Receipt updated successfully');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update receipt. Please try again.');
+      console.error('Error updating receipt:', error);
+    }
+  };
+
+  // Handle cancel edit
+  const handleCancelEdit = () => {
+    setIsEditing(false);
   };
 
   // Animated combined transform
@@ -389,79 +446,93 @@ const ReceiptDetailScreen: React.FC<ReceiptDetailScreenProps> = ({ navigation, r
         >
           <Animated.View style={[styles.modalContainer, animatedStyle]}>
             <SafeAreaView style={styles.modalContent}>
-              {/* Drag Indicator */}
-              <View style={styles.dragIndicatorContainer}>
-                <View style={styles.dragIndicator} />
-              </View>
+              {isEditing ? (
+                // Edit Form
+                <ReceiptEditForm
+                  receipt={receiptData}
+                  onSave={handleSaveReceipt}
+                  onCancel={handleCancelEdit}
+                  autoSave={true}
+                  autoSaveDelay={2000}
+                />
+              ) : (
+                // Detail View
+                <>
+                  {/* Drag Indicator */}
+                  <View style={styles.dragIndicatorContainer}>
+                    <View style={styles.dragIndicator} />
+                  </View>
 
-              {/* Header */}
-              <View style={styles.header}>
-                <TouchableOpacity
-                  style={styles.headerButton}
-                  onPress={closeModal}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons name="close" size={24} color={theme.colors.text.secondary} />
-                </TouchableOpacity>
+                  {/* Header */}
+                  <View style={styles.header}>
+                    <TouchableOpacity
+                      style={styles.headerButton}
+                      onPress={closeModal}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Ionicons name="close" size={24} color={theme.colors.text.secondary} />
+                    </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={styles.headerButton}
-                  onPress={() => setShowMenuModal(true)}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons name="ellipsis-horizontal" size={24} color={theme.colors.text.secondary} />
-                </TouchableOpacity>
-              </View>
+                    <TouchableOpacity
+                      style={styles.headerButton}
+                      onPress={() => setShowMenuModal(true)}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Ionicons name="ellipsis-horizontal" size={24} color={theme.colors.text.secondary} />
+                    </TouchableOpacity>
+                  </View>
 
-              {/* Scrollable Content */}
-              <ScrollView
-                style={styles.scrollView}
-                contentContainerStyle={styles.scrollContent}
-                showsVerticalScrollIndicator={false}
-                bounces={true}
-              >
-                {/* Receipt Image Section */}
-                <View style={styles.imageSection}>
-                  <ReceiptImageViewer
-                    imageUri={receipt.imageUri}
-                    onError={() => setHasImageError(true)}
-                  />
-                </View>
-
-                {/* Merchant Information */}
-                <View style={styles.merchantSection}>
-                  <Text style={styles.merchantName}>{receipt.merchant}</Text>
-                  {receipt.category && (
-                    <View style={styles.categoryBadge}>
-                      <Text style={styles.categoryText}>{receipt.category}</Text>
+                  {/* Scrollable Content */}
+                  <ScrollView
+                    style={styles.scrollView}
+                    contentContainerStyle={styles.scrollContent}
+                    showsVerticalScrollIndicator={false}
+                    bounces={true}
+                  >
+                    {/* Receipt Image Section */}
+                    <View style={styles.imageSection}>
+                      <ReceiptImageViewer
+                        imageUri={receiptData.imageUri}
+                        onError={() => setHasImageError(true)}
+                      />
                     </View>
-                  )}
-                </View>
 
-                {/* Receipt Details Grid */}
-                <ReceiptInfoGrid
-                  amount={`$${receipt.amount.toFixed(2)}`}
-                  date={formatDate(receipt.date)}
-                  paymentMethod="•••• 1234"
-                  time={formatTime(receipt.createdAt)}
-                />
+                    {/* Merchant Information */}
+                    <View style={styles.merchantSection}>
+                      <Text style={styles.merchantName}>{receiptData.merchant}</Text>
+                      {receiptData.category && (
+                        <View style={styles.categoryBadge}>
+                          <Text style={styles.categoryText}>{receiptData.category}</Text>
+                        </View>
+                      )}
+                    </View>
 
-                {/* Tags Section */}
-                <ReceiptTags
-                  tags={tags}
-                  onTagPress={toggleTag}
-                  onAddTag={handleAddTag}
-                />
+                    {/* Receipt Details Grid */}
+                    <ReceiptInfoGrid
+                      amount={`$${receiptData.amount.toFixed(2)}`}
+                      date={formatDate(receiptData.date)}
+                      paymentMethod="•••• 1234"
+                      time={formatTime(receiptData.createdAt)}
+                    />
 
-                {/* Bottom spacing for action buttons */}
-                <View style={{ height: 140 }} />
-              </ScrollView>
+                    {/* Tags Section */}
+                    <ReceiptTags
+                      tags={tags}
+                      onTagPress={toggleTag}
+                      onAddTag={handleAddTag}
+                    />
 
-              {/* Action Buttons */}
-              <ActionButtons
-                onExport={handleExport}
-                onShare={handleShare}
-              />
+                    {/* Bottom spacing for action buttons */}
+                    <View style={{ height: 140 }} />
+                  </ScrollView>
+
+                  {/* Action Buttons */}
+                  <ActionButtons
+                    onExport={handleExport}
+                    onShare={handleShare}
+                  />
+                </>
+              )}
             </SafeAreaView>
           </Animated.View>
         </PanGestureHandler>
@@ -474,6 +545,16 @@ const ReceiptDetailScreen: React.FC<ReceiptDetailScreenProps> = ({ navigation, r
             onPress={() => setShowMenuModal(false)}
           >
             <View style={styles.menuContainer}>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => handleMenuAction('edit')}
+              >
+                <Ionicons name="create-outline" size={20} color={theme.colors.text.primary} />
+                <Text style={styles.menuText}>Edit Receipt</Text>
+              </TouchableOpacity>
+
+              <View style={styles.menuDivider} />
+
               <TouchableOpacity
                 style={styles.menuItem}
                 onPress={() => handleMenuAction('export-pdf')}

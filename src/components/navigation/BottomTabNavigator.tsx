@@ -19,6 +19,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import HomeScreen from '../../screens/HomeScreen';
 import CameraScreen from '../../screens/CameraScreen';
 import SearchScreen from '../../screens/SearchScreen';
+import ErrorBoundary from '../ErrorBoundary';
 
 // Get device dimensions
 const { width: screenWidth } = Dimensions.get('window');
@@ -26,6 +27,13 @@ const isTablet = screenWidth > 768;
 
 // Create tab navigator
 const Tab = createBottomTabNavigator();
+
+// Wrapped Camera Screen with Error Boundary
+const CameraScreenWithErrorBoundary = () => (
+  <ErrorBoundary>
+    <CameraScreen />
+  </ErrorBoundary>
+);
 
 // Tab icon mapping
 const TAB_ICONS = {
@@ -273,7 +281,7 @@ const BottomTabNavigator: React.FC = () => {
       />
       <Tab.Screen
         name="Camera"
-        component={CameraScreen}
+        component={CameraScreenWithErrorBoundary}
         options={{
           tabBarLabel: 'Camera',
           tabBarAccessibilityLabel: 'Camera Tab',

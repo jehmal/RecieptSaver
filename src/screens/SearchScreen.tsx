@@ -1,4 +1,4 @@
-import React, { useState, useMemo, Fragment } from 'react';
+import React, { useState, useMemo, Fragment, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,18 +8,32 @@ import {
   SectionList,
   StatusBar,
   ScrollView,
+  Animated,
+  BackHandler,
+  Alert,
+  Platform,
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import ReceiptListItem from '../components/search/ReceiptListItem';
+import SelectableReceiptListItem from '../components/search/SelectableReceiptListItem';
 import { SearchBar } from '../components/search/SearchBar';
 import { FilterPills } from '../components/search/FilterPills';
 import { AdvancedFilterSheet } from '../components/search/AdvancedFilterSheet';
+import SelectionModeHeader from '../components/search/SelectionModeHeader';
+import FloatingActionBar from '../components/search/FloatingActionBar';
+import BulkActionsMenu from '../components/search/BulkActionsMenu';
+import CategorySelectionModal from '../components/search/CategorySelectionModal';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useReceipts } from '../contexts/ReceiptContext';
 import BlackbirdTabSelector from '../components/home/BlackbirdTabSelector';
 import { Warranty, sortWarrantiesByExpiry } from '../types/warranty';
 import WarrantyCard from '../components/home/WarrantyCard';
 import { FilterState, defaultFilterState } from '../types/filters';
+import * as Haptics from 'expo-haptics';
+import { SwipeableReceiptCard, PullToRefresh, GestureHints, SwipeableWrapper } from '../components/gestures';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import Toast from 'react-native-toast-message';
 
 // Types
 interface Tag {
@@ -373,7 +387,59 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState<FilterState>(defaultFilterState);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
-  const [receipts] = useState<Receipt[]>(generateSampleReceipts());
+  const { receipts: contextReceipts, addReceipt } = useReceipts();
+  
+  // Initialize with sample data if empty (for demo purposes)
+  useEffect(() => {
+    if (contextReceipts.length === 0) {
+      const sampleReceipts = generateSampleReceipts();
+      sampleReceipts.forEach(receipt => {
+        addReceipt({
+          id: receipt.id,
+          merchant: receipt.merchant,
+          amount: receipt.amount,
+          date: receipt.date.toISOString(),
+          category: receipt.category,
+          imageUri: receipt.thumbnail || '',
+          notes: receipt.description || '',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          isSynced: false,
+          tags: receipt.tags.map(tag => tag.name),
+          paymentMethod: receipt.paymentMethod,
+          merchantLogo: receipt.merchantLogo,
+          merchantColor: receipt.merchantColor,
+        });
+      });
+    }
+  }, [contextReceipts.length, addReceipt]);
+  
+  // Convert context receipts to the local Receipt type format
+  const receipts = useMemo(() => {
+    console.log('SearchScreen: Converting context receipts, count:', contextReceipts.length);
+    return contextReceipts.map(receipt => ({
+      ...receipt,
+      date: new Date(receipt.date),
+      tags: receipt.tags?.map((tagName, index) => ({
+        id: `tag-${index}`,
+        name: typeof tagName === 'string' ? tagName : tagName.name,
+        color: sampleTags.find(t => t.name === (typeof tagName === 'string' ? tagName : tagName.name))?.color || '#007AFF'
+      })) || [],
+      paymentMethod: receipt.paymentMethod || 'Cash',
+      merchantLogo: receipt.merchantLogo || '🧾',
+      merchantColor: receipt.merchantColor || '#007AFF',
+      description: receipt.notes || '',
+    }));
+  }, [contextReceipts]);
+  
+  // Multi-select state
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedReceiptIds, setSelectedReceiptIds] = useState<Set<string>>(new Set());
+  const [showBulkActions, setShowBulkActions] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  
+  // Animation refs
+  const selectionHeaderAnim = useRef(new Animated.Value(0)).current;
   
   // Mock warranty data
   const warranties: Warranty[] = [
@@ -471,7 +537,7 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
   const { theme, themeMode } = useTheme();
   const { user } = useAuth();
   const [selectedTab, setSelectedTab] = useState<'receipts' | 'warranties'>('receipts');
-
+  
   // Calculate advanced filter count
   const advancedFilterCount = useMemo(() => {
     let count = 0;
@@ -490,6 +556,7 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
 
   // Filter receipts based on search query and all filters
   const filteredReceipts = useMemo(() => {
+    console.log('SearchScreen: Filtering receipts, total count:', receipts.length);
     return receipts.filter(receipt => {
       // Search query filter
       if (searchQuery) {
@@ -571,6 +638,124 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
       return true;
     });
   }, [receipts, searchQuery, filters]);
+  
+  // Handle back button in selection mode
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (isSelectionMode) {
+        exitSelectionMode();
+        return true;
+      }
+      return false;
+    });
+    
+    return () => backHandler.remove();
+  }, [isSelectionMode]);
+  
+  // Selection mode functions
+  const enterSelectionMode = useCallback((receiptId?: string) => {
+    console.log('Entering selection mode with receipt:', receiptId);
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    setIsSelectionMode(true);
+    if (receiptId) {
+      setSelectedReceiptIds(new Set([receiptId]));
+    }
+    // Animate header in
+    Animated.timing(selectionHeaderAnim, {
+      toValue: 1,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+  
+  const exitSelectionMode = useCallback(() => {
+    setIsSelectionMode(false);
+    setSelectedReceiptIds(new Set());
+    setShowBulkActions(false);
+    // Animate header out
+    Animated.timing(selectionHeaderAnim, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+  
+  const toggleReceiptSelection = useCallback((receiptId: string) => {
+    setSelectedReceiptIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(receiptId)) {
+        newSet.delete(receiptId);
+      } else {
+        newSet.add(receiptId);
+      }
+      return newSet;
+    });
+  }, []);
+  
+  const selectAllReceipts = useCallback(() => {
+    const allIds = new Set(filteredReceipts.map(r => r.id));
+    setSelectedReceiptIds(allIds);
+  }, [filteredReceipts]);
+  
+  const deselectAllReceipts = useCallback(() => {
+    setSelectedReceiptIds(new Set());
+  }, []);
+  
+  // Bulk action handlers
+  const handleBulkCategorize = useCallback(() => {
+    setShowBulkActions(false);
+    setShowCategoryModal(true);
+  }, []);
+  
+  const handleBulkDelete = useCallback(() => {
+    Alert.alert(
+      'Delete Receipts',
+      `Are you sure you want to delete ${selectedReceiptIds.size} receipt${selectedReceiptIds.size > 1 ? 's' : ''}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            // TODO: Implement actual deletion
+            console.log('Deleting receipts:', Array.from(selectedReceiptIds));
+            exitSelectionMode();
+          },
+        },
+      ]
+    );
+  }, [selectedReceiptIds, exitSelectionMode]);
+  
+  const handleBulkExport = useCallback(() => {
+    // TODO: Implement export functionality
+    console.log('Exporting receipts:', Array.from(selectedReceiptIds));
+    setShowBulkActions(false);
+  }, [selectedReceiptIds]);
+  
+  const handleCategorySelect = useCallback((category: any) => {
+    // TODO: Implement category assignment
+    console.log('Assigning category:', category.name, 'to receipts:', Array.from(selectedReceiptIds));
+    setShowCategoryModal(false);
+    exitSelectionMode();
+  }, [selectedReceiptIds, exitSelectionMode]);
+  
+  // Receipt interaction handlers
+  const handleReceiptPress = useCallback((receipt: Receipt) => {
+    if (isSelectionMode) {
+      toggleReceiptSelection(receipt.id);
+    } else {
+      navigation.navigate('ReceiptDetailScreen', { receipt });
+    }
+  }, [isSelectionMode, toggleReceiptSelection, navigation]);
+  
+  const handleReceiptLongPress = useCallback((receipt: Receipt) => {
+    console.log('Long press detected on receipt:', receipt.id, 'Selection mode:', isSelectionMode);
+    if (!isSelectionMode) {
+      enterSelectionMode(receipt.id);
+    }
+  }, [isSelectionMode, enterSelectionMode]);
 
   // Handle search
   const handleSearch = (text: string) => {
@@ -580,6 +765,19 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
   // Handle advanced filter apply
   const handleAdvancedFiltersApply = () => {
     setShowAdvancedFilters(false);
+  };
+  
+  // Handle refresh
+  const handleRefresh = async () => {
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    // In a real app, you would refresh the data from the server
+    Toast.show({
+      type: 'success',
+      text1: 'Refreshed',
+      text2: 'Receipts updated successfully',
+    });
   };
 
 
@@ -623,17 +821,109 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
   const renderReceiptItem = ({ item, index, section }: { item: Receipt; index: number; section: ReceiptSection }) => {
     const isLastItem = index === section.data.length - 1;
     
+    // Handle receipt actions
+    const handleCategorize = () => {
+      setShowCategoryModal(true);
+      setSelectedReceiptIds(new Set([item.id]));
+    };
+    
+    const handleArchive = () => {
+      Alert.alert(
+        'Archive Receipt',
+        `Archive receipt from ${item.merchant}?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Archive', 
+            style: 'destructive',
+            onPress: () => {
+              Toast.show({
+                type: 'success',
+                text1: 'Receipt Archived',
+                text2: `${item.merchant} receipt has been archived`,
+              });
+            }
+          }
+        ]
+      );
+    };
+    
+    const handleDelete = () => {
+      Alert.alert(
+        'Delete Receipt',
+        `Delete receipt from ${item.merchant}?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Delete', 
+            style: 'destructive',
+            onPress: () => {
+              Toast.show({
+                type: 'success',
+                text1: 'Receipt Deleted',
+                text2: `${item.merchant} receipt has been deleted`,
+              });
+            }
+          }
+        ]
+      );
+    };
+    
     return (
       <Fragment key={item.id}>
-        <ReceiptListItem 
-          receipt={item} 
-          onPress={() => {
-            // Navigate to receipt detail screen
-            navigation.navigate('ReceiptDetailScreen', { receipt: item });
-          }}
-        />
+        {isSelectionMode ? (
+          <SelectableReceiptListItem
+            receipt={item}
+            isSelected={selectedReceiptIds.has(item.id)}
+            isSelectionMode={isSelectionMode}
+            onPress={() => handleReceiptPress(item)}
+            onLongPress={() => handleReceiptLongPress(item)}
+            onSelectionToggle={() => toggleReceiptSelection(item.id)}
+          />
+        ) : (
+          <SwipeableWrapper>
+            <SwipeableReceiptCard
+            leftActions={[
+              {
+                type: 'categorize',
+                color: '#007AFF',
+                icon: 'pricetag',
+                label: 'Category',
+                onPress: handleCategorize,
+              }
+            ]}
+            rightActions={[
+              {
+                type: 'archive',
+                color: '#FF9500',
+                icon: 'archive',
+                label: 'Archive',
+                onPress: handleArchive,
+              },
+              {
+                type: 'delete',
+                color: '#FF3B30',
+                icon: 'trash',
+                label: 'Delete',
+                onPress: handleDelete,
+              }
+            ]}
+            onLongPress={() => handleReceiptLongPress(item)}
+            onDoubleTap={() => {
+              navigation.navigate('ReceiptDetailScreen', { receipt: item });
+            }}
+            swipeEnabled={!isSelectionMode}
+          >
+            <ReceiptListItem 
+              receipt={item} 
+              onPress={() => handleReceiptPress(item)}
+              onLongPress={() => handleReceiptLongPress(item)}
+            />
+            </SwipeableReceiptCard>
+          </SwipeableWrapper>
+        )}
         {!isLastItem && (
-          <View style={styles.separator} />
+          <View style={[styles.separator, isSelectionMode && { marginLeft: 108 }]} />
         )}
       </Fragment>
     );
@@ -772,20 +1062,36 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
   });
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle={themeMode === 'dark' ? "light-content" : "dark-content"} backgroundColor={theme.colors.background} />
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle={themeMode === 'dark' ? "light-content" : "dark-content"} backgroundColor={theme.colors.background} />
       
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="chevron-back" size={24} color={theme.colors.text.primary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Receipts & Warranties</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+      {/* Regular Header */}
+      {!isSelectionMode && (
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="chevron-back" size={24} color={theme.colors.text.primary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Receipts & Warranties</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+      )}
+      
+      {/* Selection Mode Header */}
+      {isSelectionMode && (
+        <SelectionModeHeader
+          selectedCount={selectedReceiptIds.size}
+          totalCount={filteredReceipts.length}
+          onClose={exitSelectionMode}
+          onSelectAll={selectAllReceipts}
+          onDeselectAll={deselectAllReceipts}
+          isAllSelected={selectedReceiptIds.size === filteredReceipts.length && filteredReceipts.length > 0}
+          fadeAnim={selectionHeaderAnim}
+        />
+      )}
 
       {/* Summary Section with Toggle */}
       <View style={styles.summarySection}>
@@ -798,15 +1104,17 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
         onTabChange={setSelectedTab}
       />
 
-      {/* Search Bar */}
-      <SearchBar 
-        value={searchQuery}
-        onChangeText={handleSearch}
-        placeholder={selectedTab === 'receipts' ? 'Search receipts, merchants, amounts...' : 'Search warranties, items, suppliers...'}
-      />
+      {/* Search Bar - Hide in selection mode */}
+      {!isSelectionMode && (
+        <SearchBar 
+          value={searchQuery}
+          onChangeText={handleSearch}
+          placeholder={selectedTab === 'receipts' ? 'Search receipts, merchants, amounts...' : 'Search warranties, items, suppliers...'}
+        />
+      )}
 
-      {/* Filter Pills - Only show for receipts */}
-      {selectedTab === 'receipts' && (
+      {/* Filter Pills - Only show for receipts and not in selection mode */}
+      {selectedTab === 'receipts' && !isSelectionMode && (
         <FilterPills
           filters={filters}
           onFiltersChange={setFilters}
@@ -825,50 +1133,90 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
       />
 
       {/* Content based on selected tab */}
-      {selectedTab === 'receipts' ? (
-        // Receipt List
-        groupedReceipts.length > 0 ? (
-          <SectionList
-            sections={groupedReceipts}
-            keyExtractor={(item) => item.id}
-            renderItem={renderReceiptItem}
-            renderSectionHeader={renderSectionHeader}
-            contentContainerStyle={styles.listContent}
-            stickySectionHeadersEnabled={false}
-            showsVerticalScrollIndicator={false}
-          />
-        ) : (
-          <View style={styles.emptyState}>
-            <Ionicons name="document-text-outline" size={64} color={theme.colors.text.tertiary} />
-            <Text style={styles.emptyStateTitle}>No receipts found</Text>
-            <Text style={styles.emptyStateText}>
-              {searchQuery ? 
-                `No receipts match "${searchQuery}"` : 
-                'No receipts match the selected filters'}
-            </Text>
-          </View>
-        )
-      ) : (
-        // Warranty List
-        <ScrollView 
-          style={styles.warrantyContainer}
-          contentContainerStyle={styles.warrantyContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {sortedWarranties.map((warranty) => (
-            <WarrantyCard
-              key={warranty.id}
-              itemName={warranty.itemName}
-              serialNumber={warranty.serialNumber}
-              purchaseDate={warranty.purchaseDate}
-              expiryDate={warranty.expiryDate}
-              supplier={warranty.supplier}
-              onPress={() => console.log(`Warranty ${warranty.id} pressed`)}
+      <PullToRefresh
+        onRefresh={handleRefresh}
+        enabled={true}
+        tintColor={theme.colors.accent.primary}
+        title="Pull to refresh"
+        titleColor={theme.colors.text.secondary}
+      >
+        {selectedTab === 'receipts' ? (
+          // Receipt List
+          groupedReceipts.length > 0 ? (
+            <SectionList
+              sections={groupedReceipts}
+              keyExtractor={(item) => item.id}
+              renderItem={renderReceiptItem}
+              renderSectionHeader={renderSectionHeader}
+              contentContainerStyle={styles.listContent}
+              stickySectionHeadersEnabled={false}
+              showsVerticalScrollIndicator={false}
             />
-          ))}
-        </ScrollView>
+          ) : (
+            <View style={styles.emptyState}>
+              <Ionicons name="document-text-outline" size={64} color={theme.colors.text.tertiary} />
+              <Text style={styles.emptyStateTitle}>No receipts found</Text>
+              <Text style={styles.emptyStateText}>
+                {searchQuery ? 
+                  `No receipts match "${searchQuery}"` : 
+                  'No receipts match the selected filters'}
+              </Text>
+            </View>
+          )
+        ) : (
+          // Warranty List
+          <ScrollView 
+            style={styles.warrantyContainer}
+            contentContainerStyle={styles.warrantyContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {sortedWarranties.map((warranty) => (
+              <WarrantyCard
+                key={warranty.id}
+                itemName={warranty.itemName}
+                serialNumber={warranty.serialNumber}
+                purchaseDate={warranty.purchaseDate}
+                expiryDate={warranty.expiryDate}
+                supplier={warranty.supplier}
+                onPress={() => console.log(`Warranty ${warranty.id} pressed`)}
+              />
+            ))}
+          </ScrollView>
+        )}
+      </PullToRefresh>
+      
+      {/* Floating Action Bar */}
+      {selectedTab === 'receipts' && (
+        <FloatingActionBar
+          visible={isSelectionMode && selectedReceiptIds.size > 0}
+          selectedCount={selectedReceiptIds.size}
+          onCategorize={handleBulkCategorize}
+          onDelete={handleBulkDelete}
+          onMore={() => setShowBulkActions(true)}
+        />
       )}
+      
+      {/* Bulk Actions Menu */}
+      <BulkActionsMenu
+        visible={showBulkActions}
+        selectedCount={selectedReceiptIds.size}
+        onCategorize={handleBulkCategorize}
+        onDelete={handleBulkDelete}
+        onExport={handleBulkExport}
+        onClose={() => setShowBulkActions(false)}
+      />
+      
+      {/* Category Selection Modal */}
+      <CategorySelectionModal
+        visible={showCategoryModal}
+        onClose={() => setShowCategoryModal(false)}
+        onSelectCategory={handleCategorySelect}
+      />
+      
+      {/* Gesture Hints */}
+      <GestureHints screen="search" />
     </SafeAreaView>
+    </GestureHandlerRootView>
   );
 };
 

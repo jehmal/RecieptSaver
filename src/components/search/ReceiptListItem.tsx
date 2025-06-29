@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 
 interface Tag {
@@ -25,10 +25,12 @@ interface Receipt {
 interface ReceiptListItemProps {
   receipt: Receipt;
   onPress?: () => void;
+  onLongPress?: () => void;
 }
 
-const ReceiptListItem: React.FC<ReceiptListItemProps> = ({ receipt, onPress }) => {
+const ReceiptListItem: React.FC<ReceiptListItemProps> = ({ receipt, onPress, onLongPress }) => {
   const { theme } = useTheme();
+  const scaleAnim = useRef(new Animated.Value(1)).current;
   
   // Format date in a concise way
   const formatDate = (date: Date) => {
@@ -108,16 +110,44 @@ const ReceiptListItem: React.FC<ReceiptListItemProps> = ({ receipt, onPress }) =
     },
   });
 
+  const handlePressIn = () => {
+    Animated.timing(scaleAnim, {
+      toValue: 0.97,
+      duration: 150,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      friction: 7,
+      tension: 40,
+    }).start();
+  };
+
   return (
     <TouchableOpacity 
       style={styles.container} 
       activeOpacity={0.7}
       onPress={onPress}
+      onLongPress={onLongPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      delayLongPress={400}
     >
-      {/* Merchant Logo */}
-      <View style={styles.logoContainer}>
-        <Text style={styles.logoText}>{receipt.merchantLogo || '🏪'}</Text>
-      </View>
+      <Animated.View 
+        style={{ 
+          transform: [{ scale: scaleAnim }],
+          flexDirection: 'row',
+          alignItems: 'center',
+        }}
+      >
+        {/* Merchant Logo */}
+        <View style={styles.logoContainer}>
+          <Text style={styles.logoText}>{receipt.merchantLogo || '🏪'}</Text>
+        </View>
 
       {/* Content */}
       <View style={styles.contentContainer}>
@@ -149,6 +179,7 @@ const ReceiptListItem: React.FC<ReceiptListItemProps> = ({ receipt, onPress }) =
           </View>
         )}
       </View>
+      </Animated.View>
     </TouchableOpacity>
   );
 };
