@@ -8,6 +8,7 @@ import {
   SectionList,
   StatusBar,
   ScrollView,
+  FlatList,
   Animated,
   BackHandler,
   Alert,
@@ -29,6 +30,7 @@ import { useReceipts } from '../contexts/ReceiptContext';
 import BlackbirdTabSelector from '../components/home/BlackbirdTabSelector';
 import { Warranty, sortWarrantiesByExpiry } from '../types/warranty';
 import WarrantyCard from '../components/home/WarrantyCard';
+import WarrantyListItem from '../components/search/WarrantyListItem';
 import { FilterState, defaultFilterState } from '../types/filters';
 import * as Haptics from 'expo-haptics';
 import { SwipeableReceiptCard, PullToRefresh, GestureHints, SwipeableWrapper } from '../components/gestures';
@@ -537,6 +539,23 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
   const { theme, themeMode } = useTheme();
   const { user } = useAuth();
   const [selectedTab, setSelectedTab] = useState<'receipts' | 'warranties'>('receipts');
+  
+  // Filter warranties based on search query
+  const filteredWarranties = useMemo(() => {
+    if (!searchQuery || selectedTab !== 'warranties') {
+      return sortedWarranties;
+    }
+    
+    const query = searchQuery.toLowerCase();
+    return sortedWarranties.filter(warranty => {
+      const matchesItemName = warranty.itemName.toLowerCase().includes(query);
+      const matchesSerialNumber = warranty.serialNumber.toLowerCase().includes(query);
+      const matchesSupplier = warranty.supplier.toLowerCase().includes(query);
+      const matchesCategory = warranty.category?.toLowerCase().includes(query) || false;
+      
+      return matchesItemName || matchesSerialNumber || matchesSupplier || matchesCategory;
+    });
+  }, [sortedWarranties, searchQuery, selectedTab]);
   
   // Calculate advanced filter count
   const advancedFilterCount = useMemo(() => {
@@ -1052,13 +1071,6 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
       marginLeft: 72,
       marginRight: 16,
     },
-    warrantyContainer: {
-      flex: 1,
-      paddingTop: 8,
-    },
-    warrantyContent: {
-      paddingBottom: 100,
-    },
   });
 
   return (
@@ -1165,23 +1177,31 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
           )
         ) : (
           // Warranty List
-          <ScrollView 
-            style={styles.warrantyContainer}
-            contentContainerStyle={styles.warrantyContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {sortedWarranties.map((warranty) => (
-              <WarrantyCard
-                key={warranty.id}
-                itemName={warranty.itemName}
-                serialNumber={warranty.serialNumber}
-                purchaseDate={warranty.purchaseDate}
-                expiryDate={warranty.expiryDate}
-                supplier={warranty.supplier}
-                onPress={() => console.log(`Warranty ${warranty.id} pressed`)}
-              />
-            ))}
-          </ScrollView>
+          filteredWarranties.length > 0 ? (
+            <FlatList
+              data={filteredWarranties}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <WarrantyListItem
+                  warranty={item}
+                  onPress={() => console.log(`Warranty ${item.id} pressed`)}
+                  onLongPress={() => console.log(`Warranty ${item.id} long pressed`)}
+                />
+              )}
+              contentContainerStyle={styles.listContent}
+              showsVerticalScrollIndicator={false}
+            />
+          ) : (
+            <View style={styles.emptyState}>
+              <Ionicons name="shield-checkmark-outline" size={64} color={theme.colors.text.tertiary} />
+              <Text style={styles.emptyStateTitle}>No warranties found</Text>
+              <Text style={styles.emptyStateText}>
+                {searchQuery ? 
+                  `No warranties match "${searchQuery}"` : 
+                  'Add warranties to track product expiration dates'}
+              </Text>
+            </View>
+          )
         )}
       </PullToRefresh>
       
