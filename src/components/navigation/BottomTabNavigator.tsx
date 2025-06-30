@@ -19,6 +19,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import HomeScreen from '../../screens/HomeScreen';
 import CameraScreen from '../../screens/CameraScreen';
 import SearchScreen from '../../screens/SearchScreen';
+import GalleryScreen from '../../screens/GalleryScreen';
 import ErrorBoundary from '../ErrorBoundary';
 
 // Get device dimensions
@@ -39,6 +40,7 @@ const CameraScreenWithErrorBoundary = () => (
 const TAB_ICONS = {
   Home: { active: 'home', inactive: 'home-outline' },
   Camera: { active: 'scan', inactive: 'scan-outline' },
+  Gallery: { active: 'grid', inactive: 'grid-outline' },
   Search: { active: 'search', inactive: 'search-outline' },
 } as const;
 
@@ -285,6 +287,14 @@ const BottomTabNavigator: React.FC = () => {
         options={{
           tabBarLabel: 'Camera',
           tabBarAccessibilityLabel: 'Camera Tab',
+        }}
+      />
+      <Tab.Screen
+        name="Gallery"
+        component={GalleryScreen}
+        options={{
+          tabBarLabel: 'Gallery',
+          tabBarAccessibilityLabel: 'Gallery Tab',
         }}
       />
       <Tab.Screen

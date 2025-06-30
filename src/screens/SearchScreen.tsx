@@ -36,6 +36,7 @@ import * as Haptics from 'expo-haptics';
 import { SwipeableReceiptCard, PullToRefresh, GestureHints, SwipeableWrapper } from '../components/gestures';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Toast from 'react-native-toast-message';
+import { SearchResultsSkeleton, EmptyState, ReceiptListItemSkeleton, WarrantyListItemSkeleton } from '../components/loading';
 
 // Types
 interface Tag {
@@ -539,6 +540,9 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
   const { theme, themeMode } = useTheme();
   const { user } = useAuth();
   const [selectedTab, setSelectedTab] = useState<'receipts' | 'warranties'>('receipts');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Filter warranties based on search query
   const filteredWarranties = useMemo(() => {
@@ -776,28 +780,58 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
     }
   }, [isSelectionMode, enterSelectionMode]);
 
-  // Handle search
-  const handleSearch = (text: string) => {
+  // Handle search with debounce
+  const searchTimeoutRef = useRef<NodeJS.Timeout>();
+  
+  const handleSearch = useCallback((text: string) => {
     setSearchQuery(text);
-  };
+    
+    // Clear previous timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
+    // Show searching state for non-empty queries
+    if (text.trim()) {
+      setIsSearching(true);
+      
+      // Simulate search delay
+      searchTimeoutRef.current = setTimeout(() => {
+        setIsSearching(false);
+      }, 500);
+    } else {
+      setIsSearching(false);
+    }
+  }, []);
 
   // Handle advanced filter apply
-  const handleAdvancedFiltersApply = () => {
+  const handleAdvancedFiltersApply = useCallback(() => {
     setShowAdvancedFilters(false);
-  };
+  }, []);
   
   // Handle refresh
-  const handleRefresh = async () => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // In a real app, you would refresh the data from the server
-    Toast.show({
-      type: 'success',
-      text1: 'Refreshed',
-      text2: 'Receipts updated successfully',
-    });
-  };
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // In a real app, you would refresh the data from the server
+      Toast.show({
+        type: 'success',
+        text1: 'Refreshed',
+        text2: selectedTab === 'receipts' ? 'Receipts updated successfully' : 'Warranties updated successfully',
+      });
+    } catch (error) {
+      Toast.show({
+        type: 'error',
+        text1: 'Refresh Failed',
+        text2: 'Please try again later',
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [selectedTab]);
 
 
   // Calculate total for filtered receipts
@@ -837,7 +871,7 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
     return sections;
   }, [filteredReceipts]);
 
-  const renderReceiptItem = ({ item, index, section }: { item: Receipt; index: number; section: ReceiptSection }) => {
+  const renderReceiptItem = useCallback(({ item, index, section }: { item: Receipt; index: number; section: ReceiptSection }) => {
     const isLastItem = index === section.data.length - 1;
     
     // Handle receipt actions
@@ -946,9 +980,9 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
         )}
       </Fragment>
     );
-  };
+  }, [isSelectionMode, selectedReceiptIds, handleReceiptPress, handleReceiptLongPress, toggleReceiptSelection, navigation, theme.colors.card.border]);
 
-  const renderSectionHeader = ({ section }: { section: ReceiptSection }) => {
+  const renderSectionHeader = useCallback(({ section }: { section: ReceiptSection }) => {
     // Calculate total for this section
     const sectionTotal = section.data.reduce((sum, receipt) => sum + receipt.amount, 0);
     
@@ -958,9 +992,9 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
         <Text style={styles.sectionTotal}>${sectionTotal.toFixed(2)}</Text>
       </View>
     );
-  };
+  }, []);
 
-  const styles = StyleSheet.create({
+  const styles = useMemo(() => StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: theme.colors.background,
@@ -1071,7 +1105,7 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
       marginLeft: 72,
       marginRight: 16,
     },
-  });
+  }), [theme.colors, themeMode]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -1151,8 +1185,20 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
         tintColor={theme.colors.accent.primary}
         title="Pull to refresh"
         titleColor={theme.colors.text.secondary}
+        refreshing={isRefreshing}
       >
-        {selectedTab === 'receipts' ? (
+        {isSearching ? (
+          // Show skeleton loading when searching
+          <ScrollView style={styles.listContent}>
+            {Array.from({ length: 5 }).map((_, index) => (
+              selectedTab === 'receipts' ? (
+                <ReceiptListItemSkeleton key={index} />
+              ) : (
+                <WarrantyListItemSkeleton key={index} />
+              )
+            ))}
+          </ScrollView>
+        ) : selectedTab === 'receipts' ? (
           // Receipt List
           groupedReceipts.length > 0 ? (
             <SectionList
@@ -1165,15 +1211,15 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
               showsVerticalScrollIndicator={false}
             />
           ) : (
-            <View style={styles.emptyState}>
-              <Ionicons name="document-text-outline" size={64} color={theme.colors.text.tertiary} />
-              <Text style={styles.emptyStateTitle}>No receipts found</Text>
-              <Text style={styles.emptyStateText}>
-                {searchQuery ? 
+            <EmptyState
+              icon="document-text-outline"
+              title="No receipts found"
+              message={
+                searchQuery ? 
                   `No receipts match "${searchQuery}"` : 
-                  'No receipts match the selected filters'}
-              </Text>
-            </View>
+                  'No receipts match the selected filters'
+              }
+            />
           )
         ) : (
           // Warranty List
@@ -1192,15 +1238,15 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
               showsVerticalScrollIndicator={false}
             />
           ) : (
-            <View style={styles.emptyState}>
-              <Ionicons name="shield-checkmark-outline" size={64} color={theme.colors.text.tertiary} />
-              <Text style={styles.emptyStateTitle}>No warranties found</Text>
-              <Text style={styles.emptyStateText}>
-                {searchQuery ? 
+            <EmptyState
+              icon="shield-checkmark-outline"
+              title="No warranties found"
+              message={
+                searchQuery ? 
                   `No warranties match "${searchQuery}"` : 
-                  'Add warranties to track product expiration dates'}
-              </Text>
-            </View>
+                  'Add warranties to track product expiration dates'
+              }
+            />
           )
         )}
       </PullToRefresh>

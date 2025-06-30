@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useMemo, useCallback, memo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Warranty, calculateWarrantyStatus } from '../../types/warranty';
@@ -9,34 +9,35 @@ interface WarrantyListItemProps {
   onLongPress?: () => void;
 }
 
-const WarrantyListItem: React.FC<WarrantyListItemProps> = ({ warranty, onPress, onLongPress }) => {
+const WarrantyListItemComponent: React.FC<WarrantyListItemProps> = ({ warranty, onPress, onLongPress }) => {
   const { theme } = useTheme();
   const scaleAnim = useRef(new Animated.Value(1)).current;
   
   // Calculate warranty status
-  const { daysRemaining, status } = calculateWarrantyStatus(warranty.expiryDate);
+  const { daysRemaining, status } = useMemo(
+    () => calculateWarrantyStatus(warranty.expiryDate),
+    [warranty.expiryDate]
+  );
   
   // Get status color (similar to WarrantyCard logic)
-  const getStatusColor = () => {
+  const statusColor = useMemo(() => {
     if (status === 'expired') return '#8E8E93';
     if (daysRemaining <= 30) return '#FF3B30';
     if (daysRemaining <= 90) return '#FF9500';
     return '#34C759';
-  };
-  
-  const statusColor = getStatusColor();
+  }, [status, daysRemaining]);
   
   // Format expiration info
-  const formatExpirationInfo = () => {
+  const expirationInfo = useMemo(() => {
     if (status === 'expired') return 'Expired';
     if (daysRemaining === 1) return 'Expires in 1 day';
     if (daysRemaining < 30) return `Expires in ${daysRemaining} days`;
     const months = Math.floor(daysRemaining / 30);
     if (months === 1) return 'Expires in 1 month';
     return `Expires in ${months} months`;
-  };
+  }, [status, daysRemaining]);
 
-  const styles = StyleSheet.create({
+  const styles = useMemo(() => StyleSheet.create({
     container: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -100,24 +101,24 @@ const WarrantyListItem: React.FC<WarrantyListItemProps> = ({ warranty, onPress, 
       fontWeight: '600',
       color: '#FFFFFF',
     },
-  });
+  }), [theme.colors, statusColor]);
 
-  const handlePressIn = () => {
+  const handlePressIn = useCallback(() => {
     Animated.timing(scaleAnim, {
       toValue: 0.97,
       duration: 150,
       useNativeDriver: true,
     }).start();
-  };
+  }, [scaleAnim]);
 
-  const handlePressOut = () => {
+  const handlePressOut = useCallback(() => {
     Animated.spring(scaleAnim, {
       toValue: 1,
       useNativeDriver: true,
       friction: 7,
       tension: 40,
     }).start();
-  };
+  }, [scaleAnim]);
 
   return (
     <TouchableOpacity 
@@ -153,7 +154,7 @@ const WarrantyListItem: React.FC<WarrantyListItemProps> = ({ warranty, onPress, 
             </Text>
           )}
           <Text style={styles.dateText}>
-            {formatExpirationInfo()}
+            {expirationInfo}
           </Text>
         </View>
 
@@ -176,5 +177,17 @@ const WarrantyListItem: React.FC<WarrantyListItemProps> = ({ warranty, onPress, 
     </TouchableOpacity>
   );
 };
+
+const WarrantyListItem = memo(WarrantyListItemComponent, (prevProps, nextProps) => {
+  return (
+    prevProps.warranty.id === nextProps.warranty.id &&
+    prevProps.warranty.itemName === nextProps.warranty.itemName &&
+    prevProps.warranty.expiryDate === nextProps.warranty.expiryDate &&
+    prevProps.warranty.serialNumber === nextProps.warranty.serialNumber &&
+    prevProps.warranty.category === nextProps.warranty.category &&
+    prevProps.onPress === nextProps.onPress &&
+    prevProps.onLongPress === nextProps.onLongPress
+  );
+});
 
 export default WarrantyListItem;

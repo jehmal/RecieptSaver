@@ -19,7 +19,7 @@ import BlackbirdTabSelector from '../components/home/BlackbirdTabSelector';
 import MerchantCard from '../components/home/MerchantCard';
 import FeaturedMerchantCard from '../components/home/FeaturedMerchantCard';
 import DailySummaryCard from '../components/home/DailySummaryCard';
-import WarrantyCard from '../components/home/WarrantyCard';
+import WarrantyListCard from '../components/home/WarrantyListCard';
 
 const HomeScreen: React.FC = () => {
   const [selectedTab, setSelectedTab] = useState<'receipts' | 'warranties'>('receipts');
@@ -256,13 +256,14 @@ const HomeScreen: React.FC = () => {
             ))
           ) : (
             sortedWarranties.map((warranty) => (
-              <WarrantyCard
+              <WarrantyListCard
                 key={warranty.id}
                 itemName={warranty.itemName}
                 serialNumber={warranty.serialNumber}
                 purchaseDate={warranty.purchaseDate}
                 expiryDate={warranty.expiryDate}
                 supplier={warranty.supplier}
+                category={warranty.category}
                 onPress={() => console.log(`Warranty ${warranty.id} pressed`)}
               />
             ))

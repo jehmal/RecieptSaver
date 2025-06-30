@@ -5,6 +5,7 @@ export { default as ActionButtons } from './ActionButtons';
 export { default as ReceiptEditForm } from './ReceiptEditForm';
 export { default as QuickEditBar } from './QuickEditBar';
 export { default as InlineEditField } from './InlineEditField';
+export { default as ShareExample } from './ShareExample';
 
 // Type exports
 export * from './types';

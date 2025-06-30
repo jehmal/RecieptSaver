@@ -19,11 +19,13 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import ReceiptCard from '../components/gallery/ReceiptCard';
 import { Receipt, useReceipts } from '../contexts/ReceiptContext';
 import { mockReceipts, mockApi } from '../utils/mockData';
 import { PinchGridView, GestureHints } from '../components/gestures';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { ReceiptCardSkeleton, EmptyState, ActivityLoader } from '../components/loading';
 
 // Get device dimensions
 const { width: screenWidth } = Dimensions.get('window');
@@ -66,6 +68,7 @@ interface GalleryState {
 const GalleryScreen: React.FC = () => {
   // Get receipts from context
   const { receipts: contextReceipts, addReceipt, isLoading: contextLoading } = useReceipts();
+  const navigation = useNavigation<any>();
   
   // State management
   const [state, setState] = useState<GalleryState>({
@@ -309,8 +312,7 @@ const GalleryScreen: React.FC = () => {
       }),
     ]).start();
 
-    console.log('Navigate to camera');
-    // Navigation logic would go here
+    navigation.navigate('Camera');
   };
 
   // Navigate to receipt detail
@@ -318,8 +320,7 @@ const GalleryScreen: React.FC = () => {
     if (state.isMultiSelectMode) {
       toggleReceiptSelection(receipt.id);
     } else {
-      console.log('Navigate to receipt detail:', receipt.id);
-      // Navigation logic would go here
+      navigation.navigate('ReceiptDetailScreen', { receipt });
     }
   };
 
@@ -354,22 +355,26 @@ const GalleryScreen: React.FC = () => {
 
   // Render empty state
   const renderEmptyState = () => (
-    <View style={styles.emptyState}>
-      <Ionicons name="receipt-outline" size={64} color="#E2E8F0" />
-      <Text style={styles.emptyStateText}>No receipts found</Text>
-      <Text style={styles.emptyStateSubtext}>
-        {state.searchQuery || state.activeFilters.some(f => f.isActive)
+    <EmptyState
+      icon="receipt-outline"
+      title="No receipts found"
+      message={
+        state.searchQuery || state.activeFilters.some(f => f.isActive)
           ? 'Try adjusting your search or filters'
-          : 'Tap the camera button to add your first receipt'}
-      </Text>
-    </View>
+          : 'Tap the camera button to add your first receipt'
+      }
+    />
   );
 
   // Render loading state
   if (state.isLoading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#2563EB" />
+        <ActivityLoader 
+          size="large" 
+          message="Loading receipts..." 
+          fullScreen 
+        />
       </View>
     );
   }

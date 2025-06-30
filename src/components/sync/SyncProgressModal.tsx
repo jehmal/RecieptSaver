@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSync } from '../../contexts/SyncContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { SyncQueueItem } from '../../types/sync';
+import { ProgressBar } from '../loading';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -169,17 +170,11 @@ export const SyncProgressModal: React.FC<SyncProgressModalProps> = ({
                     </Text>
                   </View>
 
-                  <View style={[styles.progressBar, { backgroundColor: theme.colors.surfaceLight }]}>
-                    <Animated.View
-                      style={[
-                        styles.progressFill,
-                        {
-                          backgroundColor: theme.colors.accent.primary,
-                          width: `${progress}%`,
-                        },
-                      ]}
-                    />
-                  </View>
+                  <ProgressBar
+                    progress={progress / 100}
+                    height={8}
+                    animated
+                  />
 
                   {estimatedTime && (
                     <Text style={[styles.timeEstimate, { color: theme.colors.text.secondary }]}>

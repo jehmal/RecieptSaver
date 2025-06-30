@@ -94,3 +94,4 @@ coverage/
 *.log
 *.tmp
 *.temp
+.claude-trace/

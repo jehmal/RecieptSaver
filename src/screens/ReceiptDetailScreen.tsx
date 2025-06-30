@@ -11,6 +11,7 @@ import {
   Modal,
   SafeAreaView,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import {
   PanGestureHandler,
@@ -31,6 +32,7 @@ import {
   Tag as ComponentTag,
 } from '../components/receipt';
 import ReceiptEditForm from '../components/receipt/ReceiptEditForm';
+import { shareReceipt, exportReceiptAsPDF, shareReceiptAsText } from '../utils/receiptExport';
 
 // Navigation types
 interface ReceiptDetailScreenProps {
@@ -205,7 +207,7 @@ const ReceiptDetailScreen: React.FC<ReceiptDetailScreenProps> = ({ navigation, r
   };
 
   // Handle menu actions
-  const handleMenuAction = (action: string) => {
+  const handleMenuAction = async (action: string) => {
     setShowMenuModal(false);
     
     switch (action) {
@@ -216,10 +218,23 @@ const ReceiptDetailScreen: React.FC<ReceiptDetailScreenProps> = ({ navigation, r
         }
         break;
       case 'export-pdf':
-        Alert.alert('Export PDF', 'Receipt exported as PDF');
+        try {
+          const pdfUri = await exportReceiptAsPDF(receiptData);
+          if (pdfUri) {
+            Alert.alert('Success', 'Receipt exported as PDF successfully');
+          } else {
+            Alert.alert('Error', 'Failed to export PDF');
+          }
+        } catch (error) {
+          Alert.alert('Error', 'Failed to export PDF');
+        }
         break;
       case 'export-image':
-        Alert.alert('Export Image', 'Receipt exported as image');
+        try {
+          await shareReceipt(receiptData, { format: 'image' });
+        } catch (error) {
+          Alert.alert('Error', 'Failed to share receipt image');
+        }
         break;
       case 'delete':
         Alert.alert(
@@ -257,11 +272,44 @@ const ReceiptDetailScreen: React.FC<ReceiptDetailScreenProps> = ({ navigation, r
   };
 
   // Handle share
-  const handleShare = () => {
+  const handleShare = async () => {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-    Alert.alert('Share Receipt', 'Share options will appear here');
+    
+    Alert.alert('Share Receipt', 'Choose share format', [
+      { 
+        text: 'Share as PDF', 
+        onPress: async () => {
+          try {
+            await shareReceipt(receiptData, { format: 'pdf' });
+          } catch (error) {
+            Alert.alert('Error', 'Failed to share receipt as PDF');
+          }
+        }
+      },
+      { 
+        text: 'Share as Image', 
+        onPress: async () => {
+          try {
+            await shareReceipt(receiptData, { format: 'image' });
+          } catch (error) {
+            Alert.alert('Error', 'Failed to share receipt image');
+          }
+        }
+      },
+      { 
+        text: 'Share as Text', 
+        onPress: async () => {
+          try {
+            await shareReceiptAsText(receiptData);
+          } catch (error) {
+            Alert.alert('Error', 'Failed to share receipt as text');
+          }
+        }
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   };
 
   // Handle save from edit form

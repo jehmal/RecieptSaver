@@ -31,6 +31,7 @@ import {
 } from 'react-native-gesture-handler';
 import { GestureHints } from '../components/gestures';
 import WebCamera from '../components/camera/WebCamera';
+import { ActivityLoader } from '../components/loading';
 
 // Fallback values for web
 const CameraTypeFallback = {
@@ -775,12 +776,12 @@ const CameraScreen: React.FC = () => {
 
         {/* Processing Overlay */}
         {state.isProcessing && (
-          <View style={styles.processingOverlay}>
-            <View style={styles.processingContainer}>
-              <ActivityIndicator size="large" color={theme.colors.accent.primary} />
-              <Text style={styles.processingText}>Processing receipt...</Text>
-            </View>
-          </View>
+          <ActivityLoader
+            size="large"
+            message="Processing receipt..."
+            fullScreen
+            overlay
+          />
         )}
 
         {/* Results Modal */}
@@ -1039,12 +1040,12 @@ const CameraScreen: React.FC = () => {
 
       {/* Processing Overlay */}
       {state.isProcessing && (
-        <View style={styles.processingOverlay}>
-          <View style={styles.processingContainer}>
-            <ActivityIndicator size="large" color={theme.colors.accent.primary} />
-            <Text style={styles.processingText}>Processing receipt...</Text>
-          </View>
-        </View>
+        <ActivityLoader
+          size="large"
+          message="Processing receipt..."
+          fullScreen
+          overlay
+        />
       )}
 
       {/* Results Modal */}

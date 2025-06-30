@@ -1,24 +1,27 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../contexts/ThemeContext';
 
 interface ActionButtonsProps {
-  onExport: () => void;
-  onShare: () => void;
+  onExport: () => void | Promise<void>;
+  onShare: () => void | Promise<void>;
 }
 
 const ActionButtons: React.FC<ActionButtonsProps> = ({ onExport, onShare }) => {
   const insets = useSafeAreaInsets();
   const bottomPadding = Math.max(insets.bottom, 20);
   const { theme } = useTheme();
+  const [exportLoading, setExportLoading] = useState(false);
+  const [shareLoading, setShareLoading] = useState(false);
 
   const styles = StyleSheet.create({
     container: {
@@ -75,23 +78,53 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({ onExport, onShare }) => {
     },
   });
 
+  const handleExport = async () => {
+    if (exportLoading) return;
+    setExportLoading(true);
+    try {
+      await onExport();
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  const handleShare = async () => {
+    if (shareLoading) return;
+    setShareLoading(true);
+    try {
+      await onShare();
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
   return (
     <View style={[styles.container, { paddingBottom: bottomPadding }]}>
       <TouchableOpacity
-        style={styles.primaryButton}
-        onPress={onExport}
+        style={[styles.primaryButton, (exportLoading || shareLoading) && { opacity: 0.7 }]}
+        onPress={handleExport}
         activeOpacity={0.8}
+        disabled={exportLoading || shareLoading}
       >
-        <Ionicons name="arrow-up-outline" size={20} color={theme.colors.background} style={styles.icon} />
+        {exportLoading ? (
+          <ActivityIndicator size="small" color={theme.colors.background} style={styles.icon} />
+        ) : (
+          <Ionicons name="arrow-up-outline" size={20} color={theme.colors.background} style={styles.icon} />
+        )}
         <Text style={styles.primaryButtonText}>Export Receipt</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={styles.secondaryButton}
-        onPress={onShare}
+        style={[styles.secondaryButton, (exportLoading || shareLoading) && { opacity: 0.7 }]}
+        onPress={handleShare}
         activeOpacity={0.8}
+        disabled={exportLoading || shareLoading}
       >
-        <Ionicons name="share-outline" size={20} color={theme.colors.text.primary} style={styles.icon} />
+        {shareLoading ? (
+          <ActivityIndicator size="small" color={theme.colors.text.primary} style={styles.icon} />
+        ) : (
+          <Ionicons name="share-outline" size={20} color={theme.colors.text.primary} style={styles.icon} />
+        )}
         <Text style={styles.secondaryButtonText}>Share</Text>
       </TouchableOpacity>
     </View>

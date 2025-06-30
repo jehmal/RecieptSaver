@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useMemo, useCallback, memo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 
@@ -28,12 +28,12 @@ interface ReceiptListItemProps {
   onLongPress?: () => void;
 }
 
-const ReceiptListItem: React.FC<ReceiptListItemProps> = ({ receipt, onPress, onLongPress }) => {
+const ReceiptListItemComponent: React.FC<ReceiptListItemProps> = ({ receipt, onPress, onLongPress }) => {
   const { theme } = useTheme();
   const scaleAnim = useRef(new Animated.Value(1)).current;
   
   // Format date in a concise way
-  const formatDate = (date: Date) => {
+  const formatDate = useCallback((date: Date) => {
     const now = new Date();
     const diffTime = Math.abs(now.getTime() - date.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -46,9 +46,11 @@ const ReceiptListItem: React.FC<ReceiptListItemProps> = ({ receipt, onPress, onL
       month: 'short', 
       day: 'numeric' 
     });
-  };
+  }, []);
 
-  const styles = StyleSheet.create({
+  const formattedDate = useMemo(() => formatDate(receipt.date), [formatDate, receipt.date]);
+
+  const styles = useMemo(() => StyleSheet.create({
     container: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -108,24 +110,24 @@ const ReceiptListItem: React.FC<ReceiptListItemProps> = ({ receipt, onPress, onL
       fontWeight: '600',
       color: '#FFFFFF',
     },
-  });
+  }), [theme.colors]);
 
-  const handlePressIn = () => {
+  const handlePressIn = useCallback(() => {
     Animated.timing(scaleAnim, {
       toValue: 0.97,
       duration: 150,
       useNativeDriver: true,
     }).start();
-  };
+  }, [scaleAnim]);
 
-  const handlePressOut = () => {
+  const handlePressOut = useCallback(() => {
     Animated.spring(scaleAnim, {
       toValue: 1,
       useNativeDriver: true,
       friction: 7,
       tension: 40,
     }).start();
-  };
+  }, [scaleAnim]);
 
   return (
     <TouchableOpacity 
@@ -160,7 +162,7 @@ const ReceiptListItem: React.FC<ReceiptListItemProps> = ({ receipt, onPress, onL
           </Text>
         )}
         <Text style={styles.dateText}>
-          {formatDate(receipt.date)}
+          {formattedDate}
         </Text>
       </View>
 
@@ -183,5 +185,17 @@ const ReceiptListItem: React.FC<ReceiptListItemProps> = ({ receipt, onPress, onL
     </TouchableOpacity>
   );
 };
+
+const ReceiptListItem = memo(ReceiptListItemComponent, (prevProps, nextProps) => {
+  return (
+    prevProps.receipt.id === nextProps.receipt.id &&
+    prevProps.receipt.merchant === nextProps.receipt.merchant &&
+    prevProps.receipt.amount === nextProps.receipt.amount &&
+    prevProps.receipt.date === nextProps.receipt.date &&
+    prevProps.receipt.tags.length === nextProps.receipt.tags.length &&
+    prevProps.onPress === nextProps.onPress &&
+    prevProps.onLongPress === nextProps.onLongPress
+  );
+});
 
 export default ReceiptListItem;

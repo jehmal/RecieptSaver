@@ -18,6 +18,8 @@ import Modal from 'react-native-modal';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../contexts/ThemeContext';
+import { shareReceipt, exportReceiptAsPDF, shareReceiptAsText } from '../../utils/receiptExport';
+import { Receipt } from '../../contexts/ReceiptContext';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -129,19 +131,57 @@ export const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
   };
 
   const handleShare = async () => {
-    try {
-      const message = `Receipt from ${editedData.merchantName}
-Date: ${editedData.date}
-Total: $${editedData.totalAmount.toFixed(2)}
-Category: ${editedData.category}`;
+    // Convert the modal's receipt data format to the standard Receipt format
+    const receiptForSharing: Receipt = {
+      id: editedData.id,
+      merchant: editedData.merchantName,
+      amount: editedData.totalAmount,
+      date: editedData.date,
+      category: editedData.category,
+      tags: editedData.tags,
+      imageUri: editedData.imageUrl || '',
+      isSynced: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
 
-      await Share.share({
-        message,
-        title: 'Receipt Details',
-      });
-    } catch (error) {
-      console.error('Error sharing receipt:', error);
-    }
+    Alert.alert('Share Receipt', 'Choose share format', [
+      { 
+        text: 'Share as PDF', 
+        onPress: async () => {
+          try {
+            await shareReceipt(receiptForSharing, { format: 'pdf' });
+          } catch (error) {
+            Alert.alert('Error', 'Failed to share receipt as PDF');
+          }
+        }
+      },
+      { 
+        text: 'Share as Image', 
+        onPress: async () => {
+          try {
+            if (editedData.imageUrl) {
+              await shareReceipt(receiptForSharing, { format: 'image' });
+            } else {
+              Alert.alert('Error', 'No receipt image available to share');
+            }
+          } catch (error) {
+            Alert.alert('Error', 'Failed to share receipt image');
+          }
+        }
+      },
+      { 
+        text: 'Share as Text', 
+        onPress: async () => {
+          try {
+            await shareReceiptAsText(receiptForSharing);
+          } catch (error) {
+            Alert.alert('Error', 'Failed to share receipt as text');
+          }
+        }
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   };
 
   const addItem = () => {

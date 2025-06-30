@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback, memo } from 'react';
 import {
   View,
   Text,
@@ -38,7 +38,7 @@ interface EditedReceiptData {
   paymentMethod: string;
 }
 
-export const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({
+const ReceiptPreviewComponent: React.FC<ReceiptPreviewProps> = ({
   imageUri,
   ocrResult,
   onConfirm,
@@ -63,38 +63,40 @@ export const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({
 
   const [showFullImage, setShowFullImage] = useState(false);
 
-  const handleAddItem = () => {
+  const handleAddItem = useCallback(() => {
     setEditedData(prev => ({
       ...prev,
       items: [...prev.items, { name: '', price: '0.00', quantity: '1' }],
     }));
-  };
+  }, []);
 
-  const handleRemoveItem = (index: number) => {
+  const handleRemoveItem = useCallback((index: number) => {
     setEditedData(prev => ({
       ...prev,
       items: prev.items.filter((_, i) => i !== index),
     }));
-  };
+  }, []);
 
-  const handleItemChange = (index: number, field: keyof typeof editedData.items[0], value: string) => {
+  const handleItemChange = useCallback((index: number, field: keyof typeof editedData.items[0], value: string) => {
     setEditedData(prev => ({
       ...prev,
       items: prev.items.map((item, i) => 
         i === index ? { ...item, [field]: value } : item
       ),
     }));
-  };
+  }, []);
 
-  const calculateTotal = () => {
+  const calculateTotal = useCallback(() => {
     return editedData.items.reduce((sum, item) => {
       const price = parseFloat(item.price) || 0;
       const quantity = parseInt(item.quantity) || 0;
       return sum + (price * quantity);
     }, 0).toFixed(2);
-  };
+  }, [editedData.items]);
 
-  const handleConfirm = () => {
+  const calculatedTotal = useMemo(() => calculateTotal(), [calculateTotal]);
+
+  const handleConfirm = useCallback(() => {
     // Validate required fields
     if (!editedData.merchantName.trim()) {
       Alert.alert('Missing Information', 'Please enter the merchant name');
@@ -102,12 +104,11 @@ export const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({
     }
 
     // Update total with calculated value
-    const calculatedTotal = calculateTotal();
     onConfirm({
       ...editedData,
       totalAmount: calculatedTotal,
     });
-  };
+  }, [editedData, calculatedTotal, onConfirm]);
 
   if (isProcessing) {
     return (
@@ -305,7 +306,7 @@ export const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({
                 Total
               </Text>
               <Text style={[styles.totalAmount, { color: theme.colors.accent.primary }]}>
-                ${calculateTotal()}
+                ${calculatedTotal}
               </Text>
             </View>
           </View>
@@ -524,3 +525,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
+
+export const ReceiptPreview = memo(ReceiptPreviewComponent);
