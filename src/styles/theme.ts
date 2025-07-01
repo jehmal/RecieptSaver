@@ -1,3 +1,5 @@
+import { createShadowStyle } from '../utils/styleNormalizer';
+
 // Blackbird-inspired theme configuration
 export const theme = {
   colors: {
@@ -95,27 +97,9 @@ export const theme = {
   },
   
   shadows: {
-    sm: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.25,
-      shadowRadius: 4,
-      elevation: 2,
-    },
-    md: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3,
-      shadowRadius: 8,
-      elevation: 4,
-    },
-    lg: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.35,
-      shadowRadius: 16,
-      elevation: 8,
-    },
+    sm: createShadowStyle('#000', { width: 0, height: 2 }, 0.25, 4, 2),
+    md: createShadowStyle('#000', { width: 0, height: 4 }, 0.3, 8, 4),
+    lg: createShadowStyle('#000', { width: 0, height: 8 }, 0.35, 16, 8),
   },
   
   transitions: {

@@ -31,12 +31,15 @@ import BlackbirdTabSelector from '../components/home/BlackbirdTabSelector';
 import { Warranty, sortWarrantiesByExpiry } from '../types/warranty';
 import WarrantyCard from '../components/home/WarrantyCard';
 import WarrantyListItem from '../components/search/WarrantyListItem';
+import WarrantyDetailModal from '../components/warranty/WarrantyDetailModal';
 import { FilterState, defaultFilterState } from '../types/filters';
 import * as Haptics from 'expo-haptics';
-import { SwipeableReceiptCard, PullToRefresh, GestureHints, SwipeableWrapper } from '../components/gestures';
+import { SwipeableReceiptCard, SwipeableWarrantyCard, PullToRefresh, GestureHints, SwipeableWrapper } from '../components/gestures';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Toast from 'react-native-toast-message';
 import { SearchResultsSkeleton, EmptyState, ReceiptListItemSkeleton, WarrantyListItemSkeleton } from '../components/loading';
+import { normalizeReceipt } from '../utils/receiptHelpers';
+import { safeToFixed } from '../utils/developmentHelpers';
 
 // Types
 interface Tag {
@@ -441,6 +444,10 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
   const [showBulkActions, setShowBulkActions] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   
+  // Warranty modal state
+  const [showWarrantyModal, setShowWarrantyModal] = useState(false);
+  const [selectedWarranty, setSelectedWarranty] = useState<Warranty | null>(null);
+  
   // Animation refs
   const selectionHeaderAnim = useRef(new Animated.Value(0)).current;
   
@@ -769,7 +776,9 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
     if (isSelectionMode) {
       toggleReceiptSelection(receipt.id);
     } else {
-      navigation.navigate('ReceiptDetailScreen', { receipt });
+      navigation.navigate('ReceiptDetailScreen', { 
+        receipt: normalizeReceipt(receipt)
+      });
     }
   }, [isSelectionMode, toggleReceiptSelection, navigation]);
   
@@ -963,7 +972,9 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
             ]}
             onLongPress={() => handleReceiptLongPress(item)}
             onDoubleTap={() => {
-              navigation.navigate('ReceiptDetailScreen', { receipt: item });
+              navigation.navigate('ReceiptDetailScreen', { 
+                receipt: normalizeReceipt(item)
+              });
             }}
             swipeEnabled={!isSelectionMode}
           >
@@ -989,7 +1000,7 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
     return (
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>{section.title}</Text>
-        <Text style={styles.sectionTotal}>${sectionTotal.toFixed(2)}</Text>
+        <Text style={styles.sectionTotal}>${safeToFixed(sectionTotal, 2)}</Text>
       </View>
     );
   }, []);
@@ -1227,13 +1238,122 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
             <FlatList
               data={filteredWarranties}
               keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <WarrantyListItem
-                  warranty={item}
-                  onPress={() => console.log(`Warranty ${item.id} pressed`)}
-                  onLongPress={() => console.log(`Warranty ${item.id} long pressed`)}
-                />
-              )}
+              renderItem={({ item }) => {
+                const handleRenew = () => {
+                  Toast.show({
+                    type: 'info',
+                    text1: 'Renew Warranty',
+                    text2: `Renewing warranty for ${item.itemName}`,
+                  });
+                };
+                
+                const handleShare = () => {
+                  Toast.show({
+                    type: 'success',
+                    text1: 'Warranty Shared',
+                    text2: `${item.itemName} warranty has been shared`,
+                  });
+                };
+                
+                const handleArchive = () => {
+                  Alert.alert(
+                    'Archive Warranty',
+                    `Archive warranty for ${item.itemName}?`,
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { 
+                        text: 'Archive', 
+                        style: 'default',
+                        onPress: () => {
+                          Toast.show({
+                            type: 'success',
+                            text1: 'Warranty Archived',
+                            text2: `${item.itemName} warranty has been archived`,
+                          });
+                        }
+                      }
+                    ]
+                  );
+                };
+                
+                const handleDelete = () => {
+                  Alert.alert(
+                    'Delete Warranty',
+                    `Delete warranty for ${item.itemName}?`,
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { 
+                        text: 'Delete', 
+                        style: 'destructive',
+                        onPress: () => {
+                          Toast.show({
+                            type: 'success',
+                            text1: 'Warranty Deleted',
+                            text2: `${item.itemName} warranty has been deleted`,
+                          });
+                        }
+                      }
+                    ]
+                  );
+                };
+                
+                return (
+                  <SwipeableWrapper>
+                    <SwipeableWarrantyCard
+                      leftActions={[
+                        {
+                          type: 'renew',
+                          color: '#34C759',
+                          icon: 'refresh',
+                          label: 'Renew',
+                          onPress: handleRenew,
+                        },
+                        {
+                          type: 'share',
+                          color: '#007AFF',
+                          icon: 'share',
+                          label: 'Share',
+                          onPress: handleShare,
+                        }
+                      ]}
+                      rightActions={[
+                        {
+                          type: 'archive',
+                          color: '#FF9500',
+                          icon: 'archive',
+                          label: 'Archive',
+                          onPress: handleArchive,
+                        },
+                        {
+                          type: 'delete',
+                          color: '#FF3B30',
+                          icon: 'trash',
+                          label: 'Delete',
+                          onPress: handleDelete,
+                        }
+                      ]}
+                      onLongPress={() => {
+                        console.log(`Warranty ${item.id} long pressed`);
+                        // Could trigger selection mode for warranties in the future
+                      }}
+                      onDoubleTap={() => {
+                        setSelectedWarranty(item);
+                        setShowWarrantyModal(true);
+                      }}
+                      swipeEnabled={true}
+                    >
+                      <WarrantyListItem
+                        warranty={item}
+                        onPress={() => {
+                          setSelectedWarranty(item);
+                          setShowWarrantyModal(true);
+                        }}
+                        onLongPress={() => console.log(`Warranty ${item.id} long pressed`)}
+                      />
+                    </SwipeableWarrantyCard>
+                  </SwipeableWrapper>
+                );
+              }}
               contentContainerStyle={styles.listContent}
               showsVerticalScrollIndicator={false}
             />
@@ -1281,6 +1401,20 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ navigation }) => {
       
       {/* Gesture Hints */}
       <GestureHints screen="search" />
+      
+      {/* Warranty Detail Modal */}
+      <WarrantyDetailModal
+        visible={showWarrantyModal}
+        warranty={selectedWarranty}
+        onClose={() => {
+          setShowWarrantyModal(false);
+          setSelectedWarranty(null);
+        }}
+        onActionPress={(action) => {
+          console.log('Warranty action pressed:', action);
+          // Handle warranty actions here
+        }}
+      />
     </SafeAreaView>
     </GestureHandlerRootView>
   );

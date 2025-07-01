@@ -14,6 +14,7 @@ import {
   PanGestureHandlerGestureEvent,
 } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
+import { normalizePointerEvents, getAnimationConfig } from '../../utils/animatedStyleHelpers';
 
 const { height: screenHeight } = Dimensions.get('window');
 const DISMISS_THRESHOLD = 150;
@@ -63,32 +64,28 @@ export const DismissibleModal: React.FC<DismissibleModalProps> = ({
       
       // Show modal
       Animated.parallel([
-        Animated.spring(translateY, {
+        Animated.spring(translateY, getAnimationConfig({
           toValue: 0,
-          useNativeDriver: true,
           tension: 65,
           friction: 11,
-        }),
-        Animated.timing(backdropAnimatedOpacity, {
+        })),
+        Animated.timing(backdropAnimatedOpacity, getAnimationConfig({
           toValue: backdropOpacity,
           duration: 300,
-          useNativeDriver: true,
-        }),
+        })),
       ]).start();
     } else {
       // Hide modal
       Animated.parallel([
-        Animated.spring(translateY, {
+        Animated.spring(translateY, getAnimationConfig({
           toValue: screenHeight,
-          useNativeDriver: true,
           tension: 65,
           friction: 11,
-        }),
-        Animated.timing(backdropAnimatedOpacity, {
+        })),
+        Animated.timing(backdropAnimatedOpacity, getAnimationConfig({
           toValue: 0,
           duration: 300,
-          useNativeDriver: true,
-        }),
+        })),
       ]).start();
     }
   }, [visible]);
@@ -96,7 +93,7 @@ export const DismissibleModal: React.FC<DismissibleModalProps> = ({
   // Handle pan gesture
   const onGestureEvent = Animated.event(
     [{ nativeEvent: { translationY: gestureTranslateY } }],
-    { useNativeDriver: true }
+    getAnimationConfig()
   );
 
   const onHandlerStateChange = (event: PanGestureHandlerStateChangeEvent) => {
@@ -114,30 +111,27 @@ export const DismissibleModal: React.FC<DismissibleModalProps> = ({
         triggerHaptic();
         
         Animated.parallel([
-          Animated.spring(translateY, {
+          Animated.spring(translateY, getAnimationConfig({
             toValue: screenHeight,
-            useNativeDriver: true,
             velocity: velocityY,
             tension: 65,
             friction: 11,
-          }),
-          Animated.timing(backdropAnimatedOpacity, {
+          })),
+          Animated.timing(backdropAnimatedOpacity, getAnimationConfig({
             toValue: 0,
             duration: 300,
-            useNativeDriver: true,
-          }),
+          })),
         ]).start(() => {
           gestureTranslateY.setValue(0);
           onDismiss();
         });
       } else {
         // Snap back to position
-        Animated.spring(gestureTranslateY, {
+        Animated.spring(gestureTranslateY, getAnimationConfig({
           toValue: 0,
-          useNativeDriver: true,
           tension: 65,
           friction: 11,
-        }).start();
+        })).start();
       }
     }
   };
@@ -189,13 +183,13 @@ export const DismissibleModal: React.FC<DismissibleModalProps> = ({
           style={[
             styles.backdrop,
             { opacity: backdropAnimatedOpacity },
+            { pointerEvents: visible ? 'auto' : 'none' },
           ]}
-          pointerEvents={visible ? 'auto' : 'none'}
           onTouchEnd={onDismiss}
         />
         
         {/* Modal Content */}
-        <View style={styles.modalContainer} pointerEvents="box-none">
+        <View style={[styles.modalContainer, { pointerEvents: 'box-none' }]}>
           <PanGestureHandler
             onGestureEvent={enableSwipeDown ? onGestureEvent : undefined}
             onHandlerStateChange={enableSwipeDown ? onHandlerStateChange : undefined}

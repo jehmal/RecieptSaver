@@ -10,6 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import * as Haptics from 'expo-haptics';
+import { formatCurrency } from '../../utils/receiptHelpers';
 
 interface Tag {
   id: string;
@@ -259,7 +260,7 @@ const SelectableReceiptListItem: React.FC<SelectableReceiptListItemProps> = ({
         {/* Right Side */}
         <View style={styles.rightContainer}>
           <Text style={styles.amount}>
-            ${receipt.amount.toFixed(2)}
+            {formatCurrency(receipt.amount)}
           </Text>
           {receipt.tags.length > 0 && !isSelectionMode && (
             <View style={styles.tagContainer}>

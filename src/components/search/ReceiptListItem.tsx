@@ -1,6 +1,8 @@
 import React, { useRef, useMemo, useCallback, memo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
+import { formatCurrency } from '../../utils/receiptHelpers';
+import { getAnimationConfig } from '../../utils/animatedStyleHelpers';
 
 interface Tag {
   id: string;
@@ -113,20 +115,20 @@ const ReceiptListItemComponent: React.FC<ReceiptListItemProps> = ({ receipt, onP
   }), [theme.colors]);
 
   const handlePressIn = useCallback(() => {
-    Animated.timing(scaleAnim, {
+    const config = getAnimationConfig({
       toValue: 0.97,
       duration: 150,
-      useNativeDriver: true,
-    }).start();
+    });
+    Animated.timing(scaleAnim, config).start();
   }, [scaleAnim]);
 
   const handlePressOut = useCallback(() => {
-    Animated.spring(scaleAnim, {
+    const config = getAnimationConfig({
       toValue: 1,
-      useNativeDriver: true,
       friction: 7,
       tension: 40,
-    }).start();
+    });
+    Animated.spring(scaleAnim, config).start();
   }, [scaleAnim]);
 
   return (
@@ -169,7 +171,7 @@ const ReceiptListItemComponent: React.FC<ReceiptListItemProps> = ({ receipt, onP
       {/* Right Side */}
       <View style={styles.rightContainer}>
         <Text style={styles.amount}>
-          ${receipt.amount.toFixed(2)}
+          {formatCurrency(receipt.amount)}
         </Text>
         {receipt.tags.length > 0 && (
           <View style={styles.tagContainer}>

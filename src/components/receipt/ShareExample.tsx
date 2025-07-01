@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Receipt } from '../../contexts/ReceiptContext';
 import { shareReceipt, exportReceiptAsPDF, shareReceiptAsText } from '../../utils/receiptExport';
+import { formatCurrency } from '../../utils/receiptHelpers';
 
 // Example receipt data for testing
 const exampleReceipt: Receipt = {
@@ -137,7 +138,7 @@ const ShareExample: React.FC = () => {
 
       <View style={styles.exampleInfo}>
         <Text style={styles.exampleText}>
-          Example Receipt: {exampleReceipt.merchant} - ${exampleReceipt.amount.toFixed(2)}
+          Example Receipt: {exampleReceipt.merchant} - {formatCurrency(exampleReceipt.amount)}
         </Text>
       </View>
 

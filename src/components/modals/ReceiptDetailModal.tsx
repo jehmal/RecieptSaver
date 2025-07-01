@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../contexts/ThemeContext';
 import { shareReceipt, exportReceiptAsPDF, shareReceiptAsText } from '../../utils/receiptExport';
 import { Receipt } from '../../contexts/ReceiptContext';
+import { safeToFixed } from '../../utils/developmentHelpers';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -336,7 +337,7 @@ export const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
         />
       ) : (
         <Text style={[styles.fieldValue, { color: theme.colors.text.primary }]}>
-          ${editedData.totalAmount.toFixed(2)}
+          ${safeToFixed(editedData.totalAmount, 2)}
         </Text>
       )}
     </View>
@@ -465,10 +466,10 @@ export const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
                 {item.name || 'Unnamed item'}
               </Text>
               <Text style={[styles.itemDetails, { color: theme.colors.text.secondary }]}>
-                {item.quantity} x ${item.price.toFixed(2)}
+                {item.quantity} x ${safeToFixed(item.price, 2)}
               </Text>
               <Text style={[styles.itemTotal, { color: theme.colors.text.primary }]}>
-                ${(item.quantity * item.price).toFixed(2)}
+                ${safeToFixed(item.quantity * item.price, 2)}
               </Text>
             </>
           )}

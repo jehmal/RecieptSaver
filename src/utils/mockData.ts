@@ -1,4 +1,4 @@
-import { Receipt } from '../components/gallery/ReceiptCard';
+import { Receipt } from '../contexts/NormalizedReceiptContext';
 
 // Realistic merchant names by category
 const merchantsByCategory = {

@@ -15,6 +15,7 @@ import {
   LongPressGestureHandlerStateChangeEvent,
 } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
+import { normalizePointerEvents, getAnimationConfig } from '../../utils/animatedStyleHelpers';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -115,11 +116,10 @@ export const MultiSelectGesture: React.FC<MultiSelectGestureProps> = ({
       onSelectionStart?.();
       
       // Show selection indicator
-      Animated.timing(selectionOpacity, {
+      Animated.timing(selectionOpacity, getAnimationConfig({
         toValue: 0.2,
         duration: 200,
-        useNativeDriver: true,
-      }).start();
+      })).start();
       
       // Initialize selection with current item
       updateSelection(y, y);
@@ -143,11 +143,10 @@ export const MultiSelectGesture: React.FC<MultiSelectGestureProps> = ({
       onSelectionEnd?.([...selectedIndices]);
       
       // Hide selection indicator
-      Animated.timing(selectionOpacity, {
+      Animated.timing(selectionOpacity, getAnimationConfig({
         toValue: 0,
         duration: 200,
-        useNativeDriver: true,
-      }).start(() => {
+      })).start(() => {
         setSelectedIndices(new Set());
         selectionHeight.setValue(0);
       });
@@ -176,9 +175,9 @@ export const MultiSelectGesture: React.FC<MultiSelectGestureProps> = ({
             opacity: selectionOpacity,
             height: selectionHeight,
             transform: [{ translateY: selectionY }],
+            pointerEvents: 'none',
           },
         ]}
-        pointerEvents="none"
       />
       
       <LongPressGestureHandler

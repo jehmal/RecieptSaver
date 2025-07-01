@@ -8,6 +8,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
+import { formatCurrency as formatCurrencyUtil } from '../../utils/receiptHelpers';
 
 interface DailySummaryCardProps {
   receiptsToday: number;
@@ -123,7 +124,10 @@ const DailySummaryCard: React.FC<DailySummaryCardProps> = ({
   });
 
   const formatCurrency = (amount: number) => {
-    return `$${amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+    // Use the utility function which handles edge cases
+    const formatted = formatCurrencyUtil(amount);
+    // Add comma separators
+    return formatted.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   };
 
   const today = new Date().toLocaleDateString('en-US', { 
@@ -149,7 +153,7 @@ const DailySummaryCard: React.FC<DailySummaryCardProps> = ({
             <Text style={styles.titleText}>{today}</Text>
           </View>
           
-          <View style={[styles.syncIndicator, { backgroundColor: `${syncConfig.color}30` }]}>
+          <View style={[styles.syncIndicator, { backgroundColor: syncConfig.color + '30' }]}>
             <Ionicons 
               name={syncConfig.icon as any} 
               size={16} 

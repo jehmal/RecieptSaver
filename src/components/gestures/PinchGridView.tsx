@@ -11,7 +11,12 @@ import {
   State,
   PinchGestureHandlerStateChangeEvent,
 } from 'react-native-gesture-handler';
-import * as Haptics from 'expo-haptics';
+import { createAnimationConfig, createTimingConfig, createSpringConfig } from '../../utils/animationHelpers';
+// Platform-specific imports
+let Haptics: any = null;
+if (Platform.OS !== 'web') {
+  Haptics = require('expo-haptics');
+}
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -47,13 +52,15 @@ export const PinchGridView: React.FC<PinchGridViewProps> = ({
 
   // Haptic feedback
   const triggerHaptic = (type: 'light' | 'medium' | 'heavy' = 'medium') => {
+    if (Platform.OS === 'web' || !Haptics) return;
+    
     if (Platform.OS === 'ios') {
       Haptics.impactAsync(
         type === 'light' ? Haptics.ImpactFeedbackStyle.Light :
         type === 'medium' ? Haptics.ImpactFeedbackStyle.Medium :
         Haptics.ImpactFeedbackStyle.Heavy
       );
-    } else {
+    } else if (Platform.OS === 'android') {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
   };
@@ -86,11 +93,7 @@ export const PinchGridView: React.FC<PinchGridViewProps> = ({
       pinchState.current.startColumns = columns;
       
       // Show overlay
-      Animated.timing(opacity, {
-        toValue: 0.3,
-        duration: 200,
-        useNativeDriver: true,
-      }).start();
+      Animated.timing(opacity, createTimingConfig(0.3, 200)).start();
     } else if (state === State.ACTIVE) {
       // Update scale animation
       const scaleValue = 0.9 + (gestureScale - 1) * 0.1; // Dampened scale
@@ -108,17 +111,11 @@ export const PinchGridView: React.FC<PinchGridViewProps> = ({
       
       // Animate back to normal
       Animated.parallel([
-        Animated.spring(scale, {
-          toValue: 1,
-          useNativeDriver: true,
+        Animated.spring(scale, createSpringConfig(1, {
           tension: 40,
           friction: 7,
-        }),
-        Animated.timing(opacity, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
+        })),
+        Animated.timing(opacity, createTimingConfig(0, 200)),
       ]).start();
       
       // Final haptic feedback
@@ -137,7 +134,6 @@ export const PinchGridView: React.FC<PinchGridViewProps> = ({
       ...StyleSheet.absoluteFillObject,
       backgroundColor: 'black',
       zIndex: 10,
-      pointerEvents: 'none',
     },
     gridContainer: {
       flex: 1,
@@ -166,7 +162,7 @@ export const PinchGridView: React.FC<PinchGridViewProps> = ({
       <Animated.View
         style={[
           styles.overlay,
-          { opacity },
+          { opacity, pointerEvents: 'none' },
         ]}
       />
       
@@ -179,21 +175,28 @@ export const PinchGridView: React.FC<PinchGridViewProps> = ({
         </View>
       )}
       
-      <PinchGestureHandler
-        onHandlerStateChange={onPinchHandlerStateChange}
-        enabled={enabled}
-      >
-        <Animated.View
-          style={[
-            styles.gridContainer,
-            {
-              transform: [{ scale }],
-            },
-          ]}
-        >
+      {Platform.OS === 'web' ? (
+        // On web, just render the grid without gesture handling
+        <View style={styles.gridContainer}>
           {children(columns)}
-        </Animated.View>
-      </PinchGestureHandler>
+        </View>
+      ) : (
+        <PinchGestureHandler
+          onHandlerStateChange={onPinchHandlerStateChange}
+          enabled={enabled}
+        >
+          <Animated.View
+            style={[
+              styles.gridContainer,
+              {
+                transform: [{ scale }],
+              },
+            ]}
+          >
+            {children(columns)}
+          </Animated.View>
+        </PinchGestureHandler>
+      )}
     </View>
   );
 };

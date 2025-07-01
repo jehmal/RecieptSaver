@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { AuthButton } from '../auth/AuthButton';
 import { OCRResult } from '../../services/ocrService';
+import { safeToFixed } from '../../utils/developmentHelpers';
 
 interface ReceiptPreviewProps {
   imageUri: string;
@@ -51,10 +52,10 @@ const ReceiptPreviewComponent: React.FC<ReceiptPreviewProps> = ({
   const [editedData, setEditedData] = useState<EditedReceiptData>({
     merchantName: ocrResult.merchantName || '',
     date: ocrResult.date ? new Date(ocrResult.date).toLocaleDateString() : new Date().toLocaleDateString(),
-    totalAmount: ocrResult.totalAmount?.toFixed(2) || '0.00',
+    totalAmount: safeToFixed(ocrResult.totalAmount, 2),
     items: ocrResult.items?.map(item => ({
       name: item.name,
-      price: item.price.toFixed(2),
+      price: safeToFixed(item.price, 2),
       quantity: (item.quantity || 1).toString(),
     })) || [],
     category: 'Shopping',
@@ -91,7 +92,8 @@ const ReceiptPreviewComponent: React.FC<ReceiptPreviewProps> = ({
       const price = parseFloat(item.price) || 0;
       const quantity = parseInt(item.quantity) || 0;
       return sum + (price * quantity);
-    }, 0).toFixed(2);
+    }, 0);
+    return safeToFixed(total, 2);
   }, [editedData.items]);
 
   const calculatedTotal = useMemo(() => calculateTotal(), [calculateTotal]);
@@ -166,7 +168,7 @@ const ReceiptPreviewComponent: React.FC<ReceiptPreviewProps> = ({
             />
           </View>
           <Text style={[styles.confidenceValue, { color: theme.colors.text.primary }]}>
-            {(ocrResult.confidence * 100).toFixed(0)}%
+            {safeToFixed(ocrResult.confidence * 100, 0)}%
           </Text>
         </View>
 

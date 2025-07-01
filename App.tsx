@@ -1,3 +1,18 @@
+// Apply web style patches before any React Native imports
+// Using static import with conditional execution for Metro bundler compatibility
+import { Platform } from 'react-native';
+import { applyWebStylePatches } from './src/utils/webStylePatches';
+
+// Apply patches only on web platform
+if (Platform.OS === 'web') {
+  try {
+    console.log('[App] Applying web style patches...');
+    applyWebStylePatches();
+  } catch (error) {
+    console.error('[App] Failed to apply web style patches:', error);
+  }
+}
+
 import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';

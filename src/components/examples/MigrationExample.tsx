@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { migrateReceiptData, validateNormalizedData, comparePerformance } from '../../utils/receiptMigration';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { safeToFixed } from '../../utils/safeToFixed';
 
 /**
  * Example component showing how to migrate from array-based to normalized receipt storage
@@ -142,10 +143,10 @@ export const MigrationExample: React.FC = () => {
       {performanceResults && (
         <View style={styles.resultsCard}>
           <Text style={styles.sectionTitle}>Performance Results</Text>
-          <Text>Array Lookup: {performanceResults.arrayTime.toFixed(2)}ms</Text>
-          <Text>Normalized Lookup: {performanceResults.normalizedTime.toFixed(2)}ms</Text>
+          <Text>Array Lookup: {safeToFixed(performanceResults.arrayTime, 2)}ms</Text>
+          <Text>Normalized Lookup: {safeToFixed(performanceResults.normalizedTime, 2)}ms</Text>
           <Text style={styles.improvementText}>
-            Performance Improvement: {(performanceResults.improvement * 100).toFixed(0)}%
+            Performance Improvement: {safeToFixed(performanceResults.improvement * 100, 0)}%
           </Text>
         </View>
       )}

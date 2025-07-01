@@ -30,7 +30,15 @@ module.exports = {
     'react-native/no-inline-styles': 'warn',
     'react-native/no-unused-styles': 'warn',
     'react-native/split-platform-components': 'warn',
-    'react-native/no-raw-text': 'off'
+    'react-native/no-raw-text': 'off',
+    // Custom rule to discourage direct toFixed usage
+    'no-restricted-syntax': [
+      'warn',
+      {
+        selector: 'CallExpression[callee.property.name="toFixed"]',
+        message: 'Avoid using toFixed directly. Use safeToFixed from utils/safeToFixed instead. If you must use toFixed, add: // eslint-disable-next-line no-restricted-syntax'
+      }
+    ]
   },
   settings: {
     react: {

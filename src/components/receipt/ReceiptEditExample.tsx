@@ -15,6 +15,7 @@ import InlineEditField from './InlineEditField';
 import QuickEditBar from './QuickEditBar';
 import { categoryOptions } from '../../types/filters';
 import { validateField, receiptValidationRules } from '../../utils/validation';
+import { safeToFixed } from '../../utils/developmentHelpers';
 
 // Example receipt data
 const exampleReceipt: Receipt = {
@@ -68,7 +69,7 @@ const ReceiptEditExample: React.FC = () => {
 
   // Format amount for display
   const formatAmount = (value: string): string => {
-    return `$${parseFloat(value).toFixed(2)}`;
+    return `$${safeToFixed(parseFloat(value), 2)}`;
   };
 
   // Show history

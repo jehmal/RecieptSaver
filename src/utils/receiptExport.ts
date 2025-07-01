@@ -3,6 +3,7 @@ import * as Print from 'expo-print';
 import * as FileSystem from 'expo-file-system';
 import { Receipt } from '../contexts/ReceiptContext';
 import { format, parseISO } from 'date-fns';
+import { formatCurrency } from './receiptHelpers';
 
 // Generate HTML template for PDF export
 const generateReceiptHTML = (receipt: Receipt): string => {
@@ -163,7 +164,7 @@ const generateReceiptHTML = (receipt: Receipt): string => {
           
           <div class="amount-section">
             <div class="amount-label">Total Amount</div>
-            <div class="amount">$${receipt.amount.toFixed(2)}</div>
+            <div class="amount">${formatCurrency(receipt.amount)}</div>
           </div>
           
           ${receipt.imageUri ? `
@@ -313,7 +314,7 @@ export const shareReceiptAsText = async (receipt: Receipt) => {
     
     const text = `Receipt from ${receipt.merchant}
 ━━━━━━━━━━━━━━━━━━━━━━━━
-Amount: $${receipt.amount.toFixed(2)}
+Amount: ${formatCurrency(receipt.amount)}
 Date: ${formatDate(receipt.date)}
 Category: ${receipt.category || 'N/A'}
 Payment: ${receipt.paymentMethod || 'N/A'}

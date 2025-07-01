@@ -24,6 +24,7 @@ import {
   useSortedReceipts,
   useBatchReceiptOperations,
 } from '../../hooks/useNormalizedReceipts';
+import { safeToFixed } from '../../utils/safeToFixed';
 
 /**
  * Example component demonstrating the usage of normalized receipt context
@@ -100,8 +101,8 @@ export const NormalizedReceiptExample: React.FC = () => {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Receipt Statistics</Text>
         <Text>Total Receipts: {receiptCount}</Text>
-        <Text>Total Amount: ${stats.totalAmount.toFixed(2)}</Text>
-        <Text>Average Amount: ${stats.averageAmount.toFixed(2)}</Text>
+        <Text>Total Amount: ${safeToFixed(stats.totalAmount, 2)}</Text>
+        <Text>Average Amount: ${safeToFixed(stats.averageAmount, 2)}</Text>
         <Text>Synced: {stats.syncedCount} | Unsynced: {stats.unsyncedCount}</Text>
       </View>
 
@@ -186,7 +187,7 @@ export const NormalizedReceiptExample: React.FC = () => {
         {Object.entries(stats.byCategory).map(([category, data]) => (
           <View key={category} style={styles.categoryItem}>
             <Text>{category}: {data.count} receipts</Text>
-            <Text>Total: ${data.total.toFixed(2)}</Text>
+            <Text>Total: ${safeToFixed(data.total, 2)}</Text>
           </View>
         ))}
       </View>

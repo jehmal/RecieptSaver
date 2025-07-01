@@ -17,15 +17,30 @@ import {
   Animated,
   Alert,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
+// Platform-specific imports
+let Haptics: any = null;
+if (Platform.OS !== 'web') {
+  Haptics = require('expo-haptics');
+}
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import ReceiptCard from '../components/gallery/ReceiptCard';
 import { Receipt, useReceipts } from '../contexts/ReceiptContext';
 import { mockReceipts, mockApi } from '../utils/mockData';
-import { PinchGridView, GestureHints } from '../components/gestures';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { GestureHints, PinchGridView } from '../components/gestures';
+// Platform-specific gesture handler import
+let GestureHandlerRootView: any = View;
+if (Platform.OS !== 'web') {
+  try {
+    const gh = require('react-native-gesture-handler');
+    GestureHandlerRootView = gh.GestureHandlerRootView;
+  } catch (e) {
+    // Fallback to View
+  }
+}
 import { ReceiptCardSkeleton, EmptyState, ActivityLoader } from '../components/loading';
+import { normalizeReceipt } from '../utils/receiptHelpers';
+import { getAnimationConfig } from '../utils/animatedStyleHelpers';
 
 // Get device dimensions
 const { width: screenWidth } = Dimensions.get('window');
@@ -113,7 +128,8 @@ const GalleryScreen: React.FC = () => {
     setState(prev => ({
       ...prev,
       receipts: contextReceipts,
-      isLoading: contextLoading,
+      filteredReceipts: contextReceipts,
+      isLoading: false, // Force loading to false for now
     }));
   }, [contextReceipts, contextLoading]);
 
@@ -241,7 +257,7 @@ const GalleryScreen: React.FC = () => {
 
   // Handle long press
   const handleLongPress = (receiptId: string) => {
-    if (Platform.OS !== 'web') {
+    if (Platform.OS !== 'web' && Haptics) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
 
@@ -300,16 +316,14 @@ const GalleryScreen: React.FC = () => {
   const navigateToCamera = () => {
     // FAB animation
     Animated.sequence([
-      Animated.timing(fabScale, {
+      Animated.timing(fabScale, getAnimationConfig({
         toValue: 0.8,
         duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(fabScale, {
+      })),
+      Animated.timing(fabScale, getAnimationConfig({
         toValue: 1,
         duration: 100,
-        useNativeDriver: true,
-      }),
+      })),
     ]).start();
 
     navigation.navigate('Camera');
@@ -320,7 +334,9 @@ const GalleryScreen: React.FC = () => {
     if (state.isMultiSelectMode) {
       toggleReceiptSelection(receipt.id);
     } else {
-      navigation.navigate('ReceiptDetailScreen', { receipt });
+      navigation.navigate('ReceiptDetailScreen', { 
+        receipt: normalizeReceipt(receipt)
+      });
     }
   };
 
@@ -356,7 +372,7 @@ const GalleryScreen: React.FC = () => {
   // Render empty state
   const renderEmptyState = () => (
     <EmptyState
-      icon="receipt-outline"
+      icon="receipt"
       title="No receipts found"
       message={
         state.searchQuery || state.activeFilters.some(f => f.isActive)
@@ -379,12 +395,11 @@ const GalleryScreen: React.FC = () => {
     );
   }
 
-  return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <View style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
-        
-        <SafeAreaView style={styles.safeArea}>
+  const content = (
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
+      
+      <SafeAreaView style={styles.safeArea}>
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Receipt Gallery</Text>
@@ -492,49 +507,84 @@ const GalleryScreen: React.FC = () => {
         )}
 
         {/* Receipt grid */}
-        <PinchGridView
-          minColumns={isTablet ? 3 : 2}
-          maxColumns={isTablet ? 6 : 4}
-          defaultColumns={state.gridColumns}
-          onColumnsChange={(columns) => {
-            setState(prev => ({ ...prev, gridColumns: columns }));
-          }}
-          enabled={!state.isMultiSelectMode}
-        >
-          {(columns) => (
-            <FlatList
-              ref={flatListRef}
-              data={state.filteredReceipts}
-              renderItem={renderReceiptCard}
-              keyExtractor={item => item.id}
-              numColumns={columns}
-              key={columns} // Force re-render when columns change
-              columnWrapperStyle={columns > 1 ? styles.row : undefined}
-              contentContainerStyle={[
-                styles.gridContent,
-                state.filteredReceipts.length === 0 && styles.emptyContent,
-              ]}
-              refreshControl={
-                <RefreshControl
-                  refreshing={state.isRefreshing}
-                  onRefresh={onRefresh}
-                  colors={['#2563EB']}
-                  tintColor="#2563EB"
-                />
-              }
-              onEndReached={loadMoreReceipts}
-              onEndReachedThreshold={0.5}
-              ListEmptyComponent={renderEmptyState}
-              ListFooterComponent={
-                state.loadingMore ? (
-                  <View style={styles.loadingMore}>
-                    <ActivityIndicator size="small" color="#2563EB" />
-                  </View>
-                ) : null
-              }
-            />
-          )}
-        </PinchGridView>
+        {Platform.OS === 'web' ? (
+          // Simple FlatList for web
+          <FlatList
+            ref={flatListRef}
+            data={state.filteredReceipts}
+            renderItem={renderReceiptCard}
+            keyExtractor={item => item.id}
+            numColumns={state.gridColumns}
+            key={state.gridColumns}
+            columnWrapperStyle={state.gridColumns > 1 ? styles.row : undefined}
+            contentContainerStyle={[
+              styles.gridContent,
+              state.filteredReceipts.length === 0 && styles.emptyContent,
+            ]}
+            refreshControl={
+              <RefreshControl
+                refreshing={state.isRefreshing}
+                onRefresh={onRefresh}
+                colors={['#2563EB']}
+                tintColor="#2563EB"
+              />
+            }
+            onEndReached={loadMoreReceipts}
+            onEndReachedThreshold={0.5}
+            ListEmptyComponent={renderEmptyState}
+            ListFooterComponent={
+              state.loadingMore ? (
+                <View style={styles.loadingMore}>
+                  <ActivityIndicator size="small" color="#2563EB" />
+                </View>
+              ) : null
+            }
+          />
+        ) : (
+          <PinchGridView
+            minColumns={isTablet ? 3 : 2}
+            maxColumns={isTablet ? 6 : 4}
+            defaultColumns={state.gridColumns}
+            onColumnsChange={(columns) => {
+              setState(prev => ({ ...prev, gridColumns: columns }));
+            }}
+            enabled={!state.isMultiSelectMode}
+          >
+            {(columns) => (
+              <FlatList
+                ref={flatListRef}
+                data={state.filteredReceipts}
+                renderItem={renderReceiptCard}
+                keyExtractor={item => item.id}
+                numColumns={columns}
+                key={columns} // Force re-render when columns change
+                columnWrapperStyle={columns > 1 ? styles.row : undefined}
+                contentContainerStyle={[
+                  styles.gridContent,
+                  state.filteredReceipts.length === 0 && styles.emptyContent,
+                ]}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={state.isRefreshing}
+                    onRefresh={onRefresh}
+                    colors={['#2563EB']}
+                    tintColor="#2563EB"
+                  />
+                }
+                onEndReached={loadMoreReceipts}
+                onEndReachedThreshold={0.5}
+                ListEmptyComponent={renderEmptyState}
+                ListFooterComponent={
+                  state.loadingMore ? (
+                    <View style={styles.loadingMore}>
+                      <ActivityIndicator size="small" color="#2563EB" />
+                    </View>
+                  ) : null
+                }
+              />
+            )}
+          </PinchGridView>
+        )}
 
         {/* Floating Action Button */}
         <TouchableOpacity
@@ -558,6 +608,16 @@ const GalleryScreen: React.FC = () => {
         <GestureHints screen="gallery" />
       </SafeAreaView>
     </View>
+  );
+
+  // Wrap with GestureHandlerRootView only on native platforms
+  if (Platform.OS === 'web') {
+    return content;
+  }
+  
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      {content}
     </GestureHandlerRootView>
   );
 };

@@ -1,5 +1,6 @@
 import * as FileSystem from 'expo-file-system';
 import { Platform } from 'react-native';
+import { safeToFixed } from '../utils/developmentHelpers';
 
 export interface OCRResult {
   text: string;
@@ -137,7 +138,7 @@ class OCRService {
       text: this.generateMockReceiptText(merchant, selectedItems, subtotal, tax, total),
       merchantName: merchant,
       date: new Date().toISOString(),
-      totalAmount: parseFloat(total.toFixed(2)),
+      totalAmount: parseFloat(safeToFixed(total, 2)),
       items: selectedItems,
       confidence: 0.95,
       rawData: {
@@ -162,12 +163,12 @@ class OCRService {
     text += 'RECEIPT\n\n';
     
     items.forEach(item => {
-      text += `${item.name} ${item.quantity ? `x${item.quantity}` : ''} $${item.price.toFixed(2)}\n`;
+      text += `${item.name} ${item.quantity ? `x${item.quantity}` : ''} $${safeToFixed(item.price, 2)}\n`;
     });
     
-    text += `\nSUBTOTAL: $${subtotal.toFixed(2)}\n`;
-    text += `TAX: $${tax.toFixed(2)}\n`;
-    text += `TOTAL: $${total.toFixed(2)}\n`;
+    text += `\nSUBTOTAL: $${safeToFixed(subtotal, 2)}\n`;
+    text += `TAX: $${safeToFixed(tax, 2)}\n`;
+    text += `TOTAL: $${safeToFixed(total, 2)}\n`;
     
     return text;
   }

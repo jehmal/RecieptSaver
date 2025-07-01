@@ -33,6 +33,7 @@ import {
 } from '../components/receipt';
 import ReceiptEditForm from '../components/receipt/ReceiptEditForm';
 import { shareReceipt, exportReceiptAsPDF, shareReceiptAsText } from '../utils/receiptExport';
+import { normalizeReceipt, formatCurrency } from '../utils/receiptHelpers';
 
 // Navigation types
 interface ReceiptDetailScreenProps {
@@ -57,6 +58,9 @@ const ReceiptDetailScreen: React.FC<ReceiptDetailScreenProps> = ({ navigation, r
   const { theme, themeMode } = useTheme();
   const { updateReceipt } = useReceipts();
   
+  // Ensure receipt data has correct types
+  const normalizedReceipt = normalizeReceipt(receipt);
+  
   // State
   const [hasImageError, setHasImageError] = useState(false);
   const [tags, setTags] = useState<Tag[]>([
@@ -67,7 +71,7 @@ const ReceiptDetailScreen: React.FC<ReceiptDetailScreenProps> = ({ navigation, r
   ]);
   const [showMenuModal, setShowMenuModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [receiptData, setReceiptData] = useState<Receipt>(receipt);
+  const [receiptData, setReceiptData] = useState<Receipt>(normalizedReceipt);
 
   // Animation values
   const translateY = useRef(new Animated.Value(screenHeight)).current;
@@ -318,11 +322,15 @@ const ReceiptDetailScreen: React.FC<ReceiptDetailScreenProps> = ({ navigation, r
       console.log('Saving receipt with ID:', updatedReceipt.id);
       console.log('Updated data:', updatedReceipt);
       
-      // Update in context/global state
-      await updateReceipt(updatedReceipt.id, updatedReceipt);
+      // Ensure the updated receipt has normalized data
+      // This is crucial to prevent toFixed errors on string amounts
+      const normalizedUpdate = normalizeReceipt(updatedReceipt);
       
-      // Update local state
-      setReceiptData(updatedReceipt);
+      // Update in context/global state
+      await updateReceipt(normalizedUpdate.id, normalizedUpdate);
+      
+      // Update local state with normalized data
+      setReceiptData(normalizedUpdate);
       setIsEditing(false);
       
       if (Platform.OS !== 'web') {
@@ -557,7 +565,7 @@ const ReceiptDetailScreen: React.FC<ReceiptDetailScreenProps> = ({ navigation, r
 
                     {/* Receipt Details Grid */}
                     <ReceiptInfoGrid
-                      amount={`$${receiptData.amount.toFixed(2)}`}
+                      amount={formatCurrency(receiptData.amount)}
                       date={formatDate(receiptData.date)}
                       paymentMethod="•••• 1234"
                       time={formatTime(receiptData.createdAt)}

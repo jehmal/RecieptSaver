@@ -10,11 +10,17 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
+// Platform-specific imports
+let Haptics: any = null;
+if (Platform.OS !== 'web') {
+  Haptics = require('expo-haptics');
+}
 import { format, parseISO, isValid, isToday, isYesterday } from 'date-fns';
 
 // Import Receipt type from context
 import { Receipt } from '../../contexts/ReceiptContext';
+import { formatCurrency } from '../../utils/receiptHelpers';
+import { normalizeStyle, getAnimationConfig } from '../../utils';
 
 interface ReceiptCardProps {
   receipt: Receipt;
@@ -57,24 +63,22 @@ const ReceiptCard: React.FC<ReceiptCardProps> = ({
 
   // Handle press animations
   const handlePressIn = () => {
-    Animated.timing(scaleAnim, {
+    Animated.timing(scaleAnim, getAnimationConfig({
       toValue: 0.95,
       duration: 100,
-      useNativeDriver: true,
-    }).start();
+    })).start();
   };
 
   const handlePressOut = () => {
-    Animated.timing(scaleAnim, {
+    Animated.timing(scaleAnim, getAnimationConfig({
       toValue: 1,
       duration: 100,
-      useNativeDriver: true,
-    }).start();
+    })).start();
   };
 
   // Handle press
   const handlePress = () => {
-    if (Platform.OS !== 'web') {
+    if (Platform.OS !== 'web' && Haptics) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
     onPress(receipt);
@@ -82,7 +86,7 @@ const ReceiptCard: React.FC<ReceiptCardProps> = ({
 
   // Handle long press
   const handleLongPressEvent = () => {
-    if (Platform.OS !== 'web') {
+    if (Platform.OS !== 'web' && Haptics) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
     onLongPress(receipt.id);
@@ -92,11 +96,10 @@ const ReceiptCard: React.FC<ReceiptCardProps> = ({
   useEffect(() => {
     if (cardState === 'syncing') {
       const rotationAnimation = Animated.loop(
-        Animated.timing(syncRotation, {
+        Animated.timing(syncRotation, getAnimationConfig({
           toValue: 1,
           duration: 1000,
-          useNativeDriver: true,
-        })
+        }))
       );
       rotationAnimation.start();
       
@@ -108,8 +111,8 @@ const ReceiptCard: React.FC<ReceiptCardProps> = ({
   }, [cardState]);
 
   // Format amount with proper currency display
-  const formatAmount = (amount: number) => {
-    return `$${amount.toFixed(2)}`;
+  const formatAmount = (amount: number | string | undefined | null) => {
+    return formatCurrency(amount);
   };
 
   // Format date with proper error handling using date-fns
@@ -197,7 +200,7 @@ const ReceiptCard: React.FC<ReceiptCardProps> = ({
       ]}
     >
       <Animated.View
-        style={[
+        style={normalizeStyle([
           styles.card,
           isSelected && styles.cardSelected,
           cardState === 'error' && styles.cardError,
@@ -205,7 +208,7 @@ const ReceiptCard: React.FC<ReceiptCardProps> = ({
             transform: [{ scale: scaleAnim }],
             opacity: fadeAnim,
           },
-        ]}
+        ])}
       >
         {/* Thumbnail Image */}
         <View style={styles.imageContainer}>
@@ -224,17 +227,17 @@ const ReceiptCard: React.FC<ReceiptCardProps> = ({
           
           {/* Sync Status Badge */}
           <View 
-            style={[
+            style={normalizeStyle([
               styles.syncBadge,
               { backgroundColor: getSyncBadgeColor() }
-            ]}
+            ])}
           >
             {getSyncIcon()}
           </View>
 
           {/* Multi-select Checkbox */}
           {isMultiSelectMode && (
-            <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+            <View style={normalizeStyle([styles.checkbox, isSelected && styles.checkboxSelected])}>
               {isSelected && (
                 <Ionicons name="checkmark" size={16} color="white" />
               )}

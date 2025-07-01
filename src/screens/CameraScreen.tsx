@@ -32,6 +32,8 @@ import {
 import { GestureHints } from '../components/gestures';
 import WebCamera from '../components/camera/WebCamera';
 import { ActivityLoader } from '../components/loading';
+import { safeToFixed } from '../utils/developmentHelpers';
+import { createAnimationConfig, createTimingConfig } from '../utils/animationHelpers';
 
 // Fallback values for web
 const CameraTypeFallback = {
@@ -136,25 +138,13 @@ const CameraScreen: React.FC = () => {
       // Start pulse animation
       Animated.loop(
         Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.1,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 500,
-            useNativeDriver: true,
-          }),
+          Animated.timing(pulseAnim, createTimingConfig(1.1, 500)),
+          Animated.timing(pulseAnim, createTimingConfig(1, 500)),
         ])
       ).start();
 
       // Show corners
-      Animated.timing(cornerOpacity, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
+      Animated.timing(cornerOpacity, createTimingConfig(1, 300)).start();
 
       // Start countdown if auto-capture is enabled
       startCountdown();
@@ -162,11 +152,7 @@ const CameraScreen: React.FC = () => {
       // Hide corners and stop animations
       pulseAnim.stopAnimation();
       pulseAnim.setValue(1);
-      Animated.timing(cornerOpacity, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
+      Animated.timing(cornerOpacity, createTimingConfig(0, 300)).start();
 
       // Cancel countdown
       if (countdownInterval.current) {
@@ -284,30 +270,14 @@ const CameraScreen: React.FC = () => {
 
       // Shutter animation
       Animated.sequence([
-        Animated.timing(flashAnim, {
-          toValue: 1,
-          duration: 50,
-          useNativeDriver: true,
-        }),
-        Animated.timing(flashAnim, {
-          toValue: 0,
-          duration: 50,
-          useNativeDriver: true,
-        }),
+        Animated.timing(flashAnim, createTimingConfig(1, 50)),
+        Animated.timing(flashAnim, createTimingConfig(0, 50)),
       ]).start();
 
       // Capture button animation
       Animated.sequence([
-        Animated.timing(captureScaleAnim, {
-          toValue: 0.8,
-          duration: 100,
-          useNativeDriver: true,
-        }),
-        Animated.timing(captureScaleAnim, {
-          toValue: 1,
-          duration: 100,
-          useNativeDriver: true,
-        }),
+        Animated.timing(captureScaleAnim, createTimingConfig(0.8, 100)),
+        Animated.timing(captureScaleAnim, createTimingConfig(1, 100)),
       ]).start();
 
       try {
@@ -331,16 +301,8 @@ const CameraScreen: React.FC = () => {
         setState((prev) => ({ ...prev, lastCapture: newUri }));
         
         Animated.parallel([
-          Animated.timing(capturedImageOpacity, {
-            toValue: 1,
-            duration: 200,
-            useNativeDriver: true,
-          }),
-          Animated.timing(capturedImageScale, {
-            toValue: 0.2,
-            duration: 500,
-            useNativeDriver: true,
-          }),
+          Animated.timing(capturedImageOpacity, createTimingConfig(1, 200)),
+          Animated.timing(capturedImageScale, createTimingConfig(0.2, 500)),
         ]).start(() => {
           // Reset after animation
           setTimeout(() => {
@@ -823,7 +785,7 @@ const CameraScreen: React.FC = () => {
                   <View style={styles.resultItem}>
                     <Text style={styles.resultLabel}>Total Amount</Text>
                     <Text style={styles.resultValue}>
-                      ${state.ocrResults.totalAmount?.toFixed(2) || '0.00'}
+                      ${safeToFixed(state.ocrResults.totalAmount, 2)}
                     </Text>
                   </View>
 
@@ -837,7 +799,7 @@ const CameraScreen: React.FC = () => {
                               {item.name} {item.quantity > 1 ? `x${item.quantity}` : ''}
                             </Text>
                             <Text style={styles.itemPrice}>
-                              ${item.price.toFixed(2)}
+                              ${safeToFixed(item.price, 2)}
                             </Text>
                           </View>
                         ))}
@@ -899,9 +861,9 @@ const CameraScreen: React.FC = () => {
             styles.flashOverlay,
             {
               opacity: flashAnim,
+              pointerEvents: 'none',
             },
           ]}
-          pointerEvents="none"
         />
 
         {/* Top Controls */}
@@ -944,9 +906,9 @@ const CameraScreen: React.FC = () => {
               styles.edgeDetectionContainer,
               {
                 transform: [{ scale: pulseAnim }],
+                pointerEvents: 'none',
               },
             ]}
-            pointerEvents="none"
           >
             {/* Corner markers */}
             <Animated.View
@@ -1006,9 +968,9 @@ const CameraScreen: React.FC = () => {
                     }),
                   },
                 ],
+                pointerEvents: 'none',
               },
             ]}
-            pointerEvents="none"
           />
         )}
                 </Camera>
@@ -1087,7 +1049,7 @@ const CameraScreen: React.FC = () => {
                 <View style={styles.resultItem}>
                   <Text style={styles.resultLabel}>Total Amount</Text>
                   <Text style={styles.resultValue}>
-                    ${state.ocrResults.totalAmount?.toFixed(2) || '0.00'}
+                    ${safeToFixed(state.ocrResults.totalAmount, 2)}
                   </Text>
                 </View>
 
@@ -1101,7 +1063,7 @@ const CameraScreen: React.FC = () => {
                             {item.name} {item.quantity > 1 ? `x${item.quantity}` : ''}
                           </Text>
                           <Text style={styles.itemPrice}>
-                            ${item.price.toFixed(2)}
+                            ${safeToFixed(item.price, 2)}
                           </Text>
                         </View>
                       ))}

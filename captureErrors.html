@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Console Error Capture</title>
+</head>
+<body>
+    <h1>Console Error Capture</h1>
+    <div id="errors" style="background: #fdd; padding: 20px; margin: 20px 0;">
+        <h2>Errors:</h2>
+        <pre id="error-list"></pre>
+    </div>
+    <div id="warnings" style="background: #ffd; padding: 20px; margin: 20px 0;">
+        <h2>Warnings:</h2>
+        <pre id="warning-list"></pre>
+    </div>
+    <script>
+        const errors = [];
+        const warnings = [];
+        
+        // Override console methods
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        
+        console.error = function(...args) {
+            errors.push(args.join(' '));
+            document.getElementById('error-list').textContent = errors.join('\n\n');
+            originalError.apply(console, args);
+        };
+        
+        console.warn = function(...args) {
+            warnings.push(args.join(' '));
+            document.getElementById('warning-list').textContent = warnings.join('\n\n');
+            originalWarn.apply(console, args);
+        };
+        
+        // Listen for unhandled errors
+        window.addEventListener('error', (event) => {
+            errors.push(`Unhandled Error: ${event.message} at ${event.filename}:${event.lineno}:${event.colno}`);
+            document.getElementById('error-list').textContent = errors.join('\n\n');
+        });
+        
+        // Create iframe to load the app
+        const iframe = document.createElement('iframe');
+        iframe.src = 'http://localhost:8081';
+        iframe.style.width = '100%';
+        iframe.style.height = '600px';
+        iframe.style.border = '1px solid #ccc';
+        document.body.appendChild(iframe);
+    </script>
+</body>
+</html>

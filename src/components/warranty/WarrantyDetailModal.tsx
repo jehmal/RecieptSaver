@@ -19,6 +19,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import RenewalReminderModal from './RenewalReminderModal';
 import ClaimFilingModal from './ClaimFilingModal';
+import { showDevelopmentNotice, isFeatureEnabled } from '../../utils/developmentHelpers';
 
 interface WarrantyDetailModalProps {
   visible: boolean;

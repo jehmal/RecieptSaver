@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test toFixed Fix</title>
+</head>
+<body>
+    <h1>Testing toFixed Fix</h1>
+    <div id="results"></div>
+    
+    <script>
+        const results = document.getElementById('results');
+        
+        // Test regular numbers
+        try {
+            const num1 = 123.456;
+            results.innerHTML += `<p>Regular number: ${num1.toFixed(2)} ✓</p>`;
+        } catch (e) {
+            results.innerHTML += `<p style="color: red;">Regular number failed: ${e.message}</p>`;
+        }
+        
+        // Test Number objects
+        try {
+            const num2 = new Number(789.123);
+            results.innerHTML += `<p>Number object: ${num2.toFixed(2)} ✓</p>`;
+        } catch (e) {
+            results.innerHTML += `<p style="color: red;">Number object failed: ${e.message}</p>`;
+        }
+        
+        // Test edge cases
+        try {
+            const num3 = NaN;
+            results.innerHTML += `<p>NaN: ${num3.toFixed(2)} ✓</p>`;
+        } catch (e) {
+            results.innerHTML += `<p style="color: red;">NaN failed: ${e.message}</p>`;
+        }
+        
+        // Test recursive scenario
+        try {
+            // This simulates what React Native Web might do
+            const originalToFixed = Number.prototype.toFixed;
+            let callCount = 0;
+            
+            Number.prototype.toFixed = function(digits) {
+                callCount++;
+                if (callCount > 10) {
+                    throw new Error('Recursion detected!');
+                }
+                return originalToFixed.call(this, digits);
+            };
+            
+            const testNum = 456.789;
+            const result = testNum.toFixed(2);
+            results.innerHTML += `<p>Recursion test: ${result} (calls: ${callCount}) ✓</p>`;
+            
+            // Restore original
+            Number.prototype.toFixed = originalToFixed;
+        } catch (e) {
+            results.innerHTML += `<p style="color: red;">Recursion test failed: ${e.message}</p>`;
+        }
+    </script>
+</body>
+</html>

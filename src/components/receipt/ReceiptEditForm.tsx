@@ -28,6 +28,7 @@ import {
   formatDate,
   parseDate,
 } from '../../utils/validation';
+import { safeToFixed } from '../../utils/developmentHelpers';
 
 interface ReceiptEditFormProps {
   receipt: Receipt;
@@ -228,9 +229,14 @@ const ReceiptEditForm: React.FC<ReceiptEditFormProps> = ({
     
     try {
       // Update amount based on items if items exist
+      // Ensure amount is always a number
+      const finalAmount = items.length > 0 
+        ? calculateTotal() 
+        : (typeof formData.amount === 'string' ? parseFloat(formData.amount) || 0 : formData.amount);
+      
       const updatedReceipt: Receipt = {
         ...formData,
-        amount: items.length > 0 ? calculateTotal() : formData.amount,
+        amount: finalAmount,
         notes: items.length > 0 ? JSON.stringify(items) : formData.notes,
         updatedAt: new Date().toISOString(),
       };
@@ -837,7 +843,7 @@ const ReceiptEditForm: React.FC<ReceiptEditFormProps> = ({
               <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>Total</Text>
                 <Text style={styles.totalAmount}>
-                  ${calculateTotal().toFixed(2)}
+                  ${safeToFixed(calculateTotal(), 2)}
                 </Text>
               </View>
             )}

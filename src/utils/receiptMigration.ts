@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Receipt } from '../contexts/NormalizedReceiptContext';
+import { safeToFixed } from './safeToFixed';
 
 const OLD_STORAGE_KEY = '@infinite_receipts';
 const NEW_STORAGE_KEY = '@infinite_receipts_normalized';
@@ -225,9 +226,9 @@ export const comparePerformance = async () => {
   const normalizedTime = performance.now() - normalizedStart;
 
   console.log(`Performance comparison (${iterations} iterations):`);
-  console.log(`Array lookup: ${arrayTime.toFixed(2)}ms`);
-  console.log(`Normalized lookup: ${normalizedTime.toFixed(2)}ms`);
-  console.log(`Improvement: ${((arrayTime / normalizedTime) * 100).toFixed(0)}%`);
+  console.log(`Array lookup: ${safeToFixed(arrayTime, 2)}ms`);
+  console.log(`Normalized lookup: ${safeToFixed(normalizedTime, 2)}ms`);
+  console.log(`Improvement: ${safeToFixed((arrayTime / normalizedTime) * 100, 0)}%`);
 
   return {
     arrayTime,

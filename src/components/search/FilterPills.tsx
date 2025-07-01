@@ -16,6 +16,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { FilterState, categoryOptions } from '../../types/filters';
+import { normalizePointerEvents, getAnimationConfig } from '../../utils/animatedStyleHelpers';
 
 interface FilterPillsProps {
   filters: FilterState;
@@ -77,29 +78,25 @@ export const FilterPills: React.FC<FilterPillsProps> = ({
   useEffect(() => {
     if (showAddCategory) {
       Animated.parallel([
-        Animated.timing(slideAnim, {
+        Animated.timing(slideAnim, getAnimationConfig({
           toValue: 0,
           duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(backdropOpacity, {
+        })),
+        Animated.timing(backdropOpacity, getAnimationConfig({
           toValue: 1,
           duration: 300,
-          useNativeDriver: true,
-        }),
+        })),
       ]).start();
     } else {
       Animated.parallel([
-        Animated.timing(slideAnim, {
+        Animated.timing(slideAnim, getAnimationConfig({
           toValue: SCREEN_HEIGHT,
           duration: 250,
-          useNativeDriver: true,
-        }),
-        Animated.timing(backdropOpacity, {
+        })),
+        Animated.timing(backdropOpacity, getAnimationConfig({
           toValue: 0,
           duration: 250,
-          useNativeDriver: true,
-        }),
+        })),
       ]).start();
     }
   }, [showAddCategory, slideAnim, backdropOpacity]);
@@ -367,8 +364,7 @@ export const FilterPills: React.FC<FilterPillsProps> = ({
         
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={StyleSheet.absoluteFillObject}
-          pointerEvents="box-none"
+          style={[StyleSheet.absoluteFillObject, { pointerEvents: 'box-none' }]}
         >
           <Animated.View
             style={[
