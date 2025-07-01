@@ -1,0 +1,1 @@
+- When using yourplayritemcp to view this app, click sign in button on the auth page do not bother to populate email and password

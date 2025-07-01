@@ -22,7 +22,7 @@ import { normalizeReceipt, formatCurrency } from '../utils/receiptHelpers';
 // Import all components
 import BlackbirdTabSelector from '../components/home/BlackbirdTabSelector';
 import MerchantCard from '../components/home/MerchantCard';
-import FeaturedMerchantCard from '../components/home/FeaturedMerchantCard';
+import EmailReceiptDetectionCard from '../components/home/EmailReceiptDetectionCard';
 import DailySummaryCard from '../components/home/DailySummaryCard';
 import WarrantyListCard from '../components/home/WarrantyListCard';
 import { SwipeableReceiptCard, SwipeableWarrantyCard, SwipeableWrapper } from '../components/gestures';
@@ -41,6 +41,12 @@ const HomeScreen: React.FC = () => {
     receiptsToday: 3,
     totalSpendToday: 247.50,
     syncStatus: 'synced' as const,
+  };
+
+  // Mock data for email receipt detection
+  const emailReceiptData = {
+    detectedCount: 8,
+    merchants: ['Amazon', 'Uber', 'Starbucks', 'Target', 'Walmart', 'DoorDash'],
   };
 
   // Sample warranty data
@@ -534,13 +540,26 @@ const HomeScreen: React.FC = () => {
           )}
         </View>
         
-        {/* Featured Merchant Section */}
-        <FeaturedMerchantCard
-          title="Top Merchant"
-          subtitle="Most Visited This Month"
-          description="You've saved $247 with Whole Foods rewards this month"
-          imageUrl="https://via.placeholder.com/400x240/4B9C3F/FFFFFF?text=Whole+Foods"
-          onPress={() => console.log('Featured merchant pressed')}
+        {/* Email Receipt Detection Section */}
+        <EmailReceiptDetectionCard
+          detectedCount={emailReceiptData.detectedCount}
+          merchantNames={emailReceiptData.merchants}
+          onImportPress={() => {
+            console.log('Import receipts from email');
+            Toast.show({
+              type: 'info',
+              text1: 'Email Import',
+              text2: 'This feature is coming soon!',
+            });
+          }}
+          onDismissPress={() => {
+            console.log('Dismissed email receipts');
+            Toast.show({
+              type: 'success',
+              text1: 'Dismissed',
+              text2: 'We\'ll remind you later about these receipts',
+            });
+          }}
         />
       </ScrollView>
       
