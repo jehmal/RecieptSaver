@@ -8,6 +8,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useCardTheme } from '../../contexts/CardThemeContext';
 
 interface EmailReceiptDetectionCardProps {
   detectedCount: number;
@@ -23,6 +24,7 @@ const EmailReceiptDetectionCard: React.FC<EmailReceiptDetectionCardProps> = ({
   onDismissPress,
 }) => {
   const { theme } = useTheme();
+  const { currentTheme, setTheme, themes } = useCardTheme();
 
   const styles = StyleSheet.create({
     container: {
@@ -40,6 +42,24 @@ const EmailReceiptDetectionCard: React.FC<EmailReceiptDetectionCardProps> = ({
       alignItems: 'center',
       marginBottom: theme.spacing.md,
       gap: theme.spacing.md,
+    },
+    themeSelectorContainer: {
+      flexDirection: 'row',
+      gap: theme.spacing.xs,
+      justifyContent: 'center',
+      marginBottom: theme.spacing.sm,
+      marginTop: -6, // Move up a bit more
+    },
+    themeCircle: {
+      width: 16,
+      height: 16,
+      borderRadius: 8,
+      borderWidth: 2,
+      borderColor: 'rgba(255, 255, 255, 0.3)',
+    },
+    activeThemeCircle: {
+      borderColor: '#FFFFFF',
+      borderWidth: 2.5,
     },
     iconContainer: {
       width: 48,
@@ -104,7 +124,7 @@ const EmailReceiptDetectionCard: React.FC<EmailReceiptDetectionCardProps> = ({
     },
     importButtonText: {
       ...theme.typography.body,
-      color: '#5856D6',
+      color: currentTheme.emailDetectionGradient[1],
       fontWeight: '700',
     },
     dismissButton: {
@@ -128,14 +148,34 @@ const EmailReceiptDetectionCard: React.FC<EmailReceiptDetectionCardProps> = ({
       onPress={onImportPress}
     >
       <LinearGradient
-        colors={['#007AFF', '#5856D6']}
+        colors={currentTheme.emailDetectionGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.gradientBackground}
       >
         <View style={styles.header}>
-          <View style={styles.iconContainer}>
-            <Ionicons name="mail" size={28} color="#FFFFFF" />
+          <View>
+            {/* Theme Selector */}
+            <View style={styles.themeSelectorContainer}>
+              {themes.map((theme) => (
+                <TouchableOpacity
+                  key={theme.id}
+                  onPress={() => setTheme(theme.id)}
+                  activeOpacity={0.8}
+                >
+                  <View
+                    style={[
+                      styles.themeCircle,
+                      { backgroundColor: theme.previewColor },
+                      currentTheme.id === theme.id && styles.activeThemeCircle,
+                    ]}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={styles.iconContainer}>
+              <Ionicons name="mail" size={28} color="#FFFFFF" />
+            </View>
           </View>
           
           <View style={styles.titleSection}>
@@ -171,7 +211,7 @@ const EmailReceiptDetectionCard: React.FC<EmailReceiptDetectionCardProps> = ({
             onPress={onImportPress}
             activeOpacity={0.8}
           >
-            <Ionicons name="add-circle" size={20} color="#5856D6" />
+            <Ionicons name="add-circle" size={20} color={currentTheme.emailDetectionGradient[1]} />
             <Text style={styles.importButtonText}>Import All</Text>
           </TouchableOpacity>
           

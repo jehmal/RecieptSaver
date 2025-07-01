@@ -8,6 +8,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useCardTheme } from '../../contexts/CardThemeContext';
 import { formatCurrency as formatCurrencyUtil } from '../../utils/receiptHelpers';
 
 interface DailySummaryCardProps {
@@ -24,6 +25,7 @@ const DailySummaryCard: React.FC<DailySummaryCardProps> = ({
   onPress,
 }) => {
   const { theme } = useTheme();
+  const { currentTheme } = useCardTheme();
 
   const getSyncStatusConfig = () => {
     switch (syncStatus) {
@@ -143,7 +145,7 @@ const DailySummaryCard: React.FC<DailySummaryCardProps> = ({
       onPress={onPress}
     >
       <LinearGradient
-        colors={['#007AFF', '#34C759']}
+        colors={currentTheme.dailySummaryGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.gradientBackground}

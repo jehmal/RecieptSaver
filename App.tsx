@@ -25,6 +25,7 @@ import { ThemeProvider } from './src/contexts/ThemeContext';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { ErrorProvider } from './src/contexts/ErrorContext';
 import { ReceiptProvider } from './src/contexts/ReceiptContext';
+import { CardThemeProvider } from './src/contexts/CardThemeContext';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -57,11 +58,13 @@ export default function App() {
         <AuthProvider>
           <ErrorProvider>
             <ReceiptProvider>
-              <PaperProvider>
-                <StatusBar style="auto" />
-                <AppNavigator />
-                <Toast />
-              </PaperProvider>
+              <CardThemeProvider>
+                <PaperProvider>
+                  <StatusBar style="auto" />
+                  <AppNavigator />
+                  <Toast />
+                </PaperProvider>
+              </CardThemeProvider>
             </ReceiptProvider>
           </ErrorProvider>
         </AuthProvider>
